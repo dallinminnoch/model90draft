@@ -266,6 +266,24 @@ const diagnosticInput = {
       },
       debtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
       nonMortgageDebtLifetimeProjection: { assumptionsUsed: { projectionModeCounts: { amortized: 1 } } },
+      transitionNeeds: {
+        lifetimeProjection: {
+          status: "complete",
+          projectionMode: "durationBridge",
+          assumptionsUsed: {
+            transitionNeedAmount: 24000,
+            durationMonths: 24,
+            currentBehaviorPreservedByFallback: false
+          },
+          transitionNeedPoints: [
+            { yearIndex: 0, transitionNeedAmount: 24000, projectionMode: "durationBridge" },
+            { yearIndex: 1, transitionNeedAmount: 12000, projectionMode: "durationBridge" },
+            { yearIndex: 2, transitionNeedAmount: 0, projectionMode: "durationBridge" }
+          ],
+          warnings: [],
+          dataGaps: []
+        }
+      },
       education: {
         lifetimeProjection: {
           status: "complete",
@@ -485,6 +503,12 @@ assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.nonMortgageDebtLifetimeProjection.assumptionsUsed.projectionModeCounts.amortized,
   1
 );
+assert.ok(snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection);
+assert.equal(snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.projectionMode, "durationBridge");
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.transitionNeedPoints[1].transitionNeedAmount,
+  12000
+);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.aggregateFallbackUsed, false);
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationSavingsOffset);
@@ -610,6 +634,8 @@ assert.match(html, /healthcareLifetimeProjection/);
 assert.match(html, /support-owned-healthcare-expense-excluded/);
 assert.match(html, /monthlyHealthcareOutOfPocketCost/);
 assert.match(html, /educationLifetimeProjection/);
+assert.match(html, /transitionNeedsLifetimeProjection/);
+assert.match(html, /durationBridge/);
 assert.match(html, /educationSavingsOffset/);
 assert.match(html, /coverageStrategyScenarioSettings/);
 assert.match(html, /educationScenarioSettingsConsumed/);

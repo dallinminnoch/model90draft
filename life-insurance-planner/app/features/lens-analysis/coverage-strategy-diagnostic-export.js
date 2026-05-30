@@ -483,6 +483,8 @@
         educationLifetimeProjection: safeContext.needLine?.componentModels?.education?.lifetimeProjection || "Not available",
         educationSavingsOffset: safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationSavingsOffset || "Not available",
         educationResourceSpendingTrace: safeContext.needLine?.componentModels?.education?.lifetimeProjection?.educationResourceSpending || "Not available",
+        transitionNeedsLifetimeProjection:
+          safeContext.needLine?.componentModels?.transitionNeeds?.lifetimeProjection || "Not available",
         healthcareLifetimeProjection: safeContext.needLine?.componentModels?.healthcare?.lifetimeProjection || "Not available",
         finalExpenseLifetimeProjection: safeContext.needLine?.componentModels?.finalExpenses?.lifetimeProjection || "Not available"
       },
@@ -493,6 +495,7 @@
           "coverage-strategy-page.js",
           "coverage-strategy-scenario-settings.js",
           "coverage-strategy-education-lifetime-projection.js",
+          "coverage-strategy-transition-needs-lifetime-projection.js",
           "coverage-strategy-debt-lifetime-projection.js",
           "coverage-strategy-final-expense-lifetime-projection.js",
           "coverage-strategy-need-line-adapter.js",

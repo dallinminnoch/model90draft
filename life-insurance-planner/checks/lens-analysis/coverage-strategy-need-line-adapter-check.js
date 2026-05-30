@@ -42,6 +42,13 @@ const finalExpenseProjectionPath = path.join(
   "lens-analysis",
   "coverage-strategy-final-expense-lifetime-projection.js"
 );
+const transitionNeedsProjectionPath = path.join(
+  repoRoot,
+  "app",
+  "features",
+  "lens-analysis",
+  "coverage-strategy-transition-needs-lifetime-projection.js"
+);
 const educationProjectionPath = path.join(
   repoRoot,
   "app",
@@ -68,6 +75,7 @@ const mortgageProjectionSource = fs.readFileSync(mortgageProjectionPath, "utf8")
 const debtProjectionSource = fs.readFileSync(debtProjectionPath, "utf8");
 const healthcareProjectionSource = fs.readFileSync(healthcareProjectionPath, "utf8");
 const finalExpenseProjectionSource = fs.readFileSync(finalExpenseProjectionPath, "utf8");
+const transitionNeedsProjectionSource = fs.readFileSync(transitionNeedsProjectionPath, "utf8");
 const educationProjectionSource = fs.readFileSync(educationProjectionPath, "utf8");
 const scenarioSettingsSource = fs.readFileSync(scenarioSettingsPath, "utf8");
 const engineSource = fs.readFileSync(enginePath, "utf8");
@@ -85,6 +93,7 @@ function loadAdapter() {
   vm.runInContext(debtProjectionSource, context, { filename: debtProjectionPath });
   vm.runInContext(healthcareProjectionSource, context, { filename: healthcareProjectionPath });
   vm.runInContext(finalExpenseProjectionSource, context, { filename: finalExpenseProjectionPath });
+  vm.runInContext(transitionNeedsProjectionSource, context, { filename: transitionNeedsProjectionPath });
   vm.runInContext(educationProjectionSource, context, { filename: educationProjectionPath });
   vm.runInContext(scenarioSettingsSource, context, { filename: scenarioSettingsPath });
   vm.runInContext(adapterSource, context, { filename: adapterPath });
@@ -346,6 +355,17 @@ assert.equal(result.needPoints[0].trace.componentTiming.education, "record-level
 assert.ok(issueCodes(result.warnings).includes("projected-dependent-education-kept-through-horizon"));
 assert.equal(result.componentModels.education.lifetimeProjection.aggregateFallbackUsed, false);
 assert.equal(result.componentModels.education.lifetimeProjection.educationSavingsOffset.active, false);
+
+assert.equal(result.needPoints[0].componentAmounts.transitionNeeds, 15000);
+assert.equal(result.needPoints[5].componentAmounts.transitionNeeds, 15000);
+assert.equal(result.needPoints[0].trace.transitionNeedsProjection.projectionMode, "flatFallback");
+assert.equal(result.needPoints[0].trace.transitionNeedsProjection.currentBehaviorPreservedByFallback, true);
+assert.equal(result.componentModels.transitionNeeds.lifetimeProjection.projectionMode, "flatFallback");
+assert.equal(
+  result.componentModels.transitionNeeds.lifetimeProjection.assumptionsUsed.currentBehaviorPreservedByFallback,
+  true
+);
+assert.ok(issueCodes(result.warnings).includes("transition-needs-duration-unavailable-flat-fallback"));
 
 const educationSavingsOffsetResult = buildCoverageStrategyNeedLine({
   lensModel: createLensModel({

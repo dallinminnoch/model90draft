@@ -1403,6 +1403,26 @@
     });
   }
 
+  function firstDefinedCandidate(candidates) {
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      if (!candidate) {
+        continue;
+      }
+      const value = candidate.value;
+      if (value != null && value !== "") {
+        return {
+          value,
+          sourcePath: candidate.sourcePath || null
+        };
+      }
+    }
+    return {
+      value: null,
+      sourcePath: null
+    };
+  }
+
   function resolveProjectedDependentCount(lensModel) {
     const educationSupport = isPlainObject(getPath(lensModel, "educationSupport"))
       ? getPath(lensModel, "educationSupport")
@@ -1710,6 +1730,169 @@
     return projection;
   }
 
+  function resolveTransitionNeedsLifetimeProjection(
+    transitionNeeds,
+    lensModel,
+    needsResult,
+    analysisSettings,
+    safeInput,
+    pointSpine,
+    valuationDateResult,
+    warnings,
+    dataGaps
+  ) {
+    if (transitionNeeds <= 0) {
+      return null;
+    }
+
+    const builder = lensAnalysis.calculateCoverageStrategyTransitionNeedsLifetimeProjection
+      || lensAnalysis.buildCoverageStrategyTransitionNeedsLifetimeProjection;
+    if (typeof builder !== "function") {
+      if (transitionNeeds > 0) {
+        addUniqueIssue(
+          dataGaps,
+          "transition-needs-lifetime-projection-helper-unavailable",
+          "Coverage Strategy transition needs lifetime projection helper was unavailable.",
+          { fallbackAmount: transitionNeeds }
+        );
+        addUniqueIssue(
+          warnings,
+          "transition-needs-duration-unavailable-flat-fallback",
+          "Transition needs were kept flat because no reliable projection helper was available.",
+          { fallbackAmount: transitionNeeds }
+        );
+      }
+      return null;
+    }
+
+    const traceRow = findTraceRow(needsResult, "transitionNeeds");
+    const traceInputs = isPlainObject(traceRow?.inputs) ? traceRow.inputs : {};
+    const sourcePaths = Array.isArray(traceRow?.sourcePaths)
+      ? traceRow.sourcePaths
+      : ["transitionNeeds.totalTransitionNeed", "settings.includeTransitionNeeds"];
+    const transitionConfig = isPlainObject(safeInput.transitionNeedsProjection)
+      ? safeInput.transitionNeedsProjection
+      : (isPlainObject(safeInput.transitionNeedsLifetimeProjection)
+        ? safeInput.transitionNeedsLifetimeProjection
+        : {});
+
+    const modeCandidate = firstDefinedCandidate([
+      {
+        value: transitionConfig.transitionMode ?? transitionConfig.projectionMode ?? transitionConfig.mode,
+        sourcePath: "input.transitionNeedsProjection.transitionMode"
+      },
+      {
+        value: safeInput.transitionNeedsMode ?? safeInput.transitionMode,
+        sourcePath: "input.transitionNeedsMode"
+      },
+      {
+        value: traceInputs.transitionMode ?? traceInputs.transitionNeedsMode ?? traceInputs.projectionMode,
+        sourcePath: "needsResult.trace.transitionNeeds.inputs.transitionMode"
+      },
+      {
+        value: getPath(needsResult, "assumptions.transitionNeedsProjection.transitionMode")
+          ?? getPath(needsResult, "assumptions.transitionNeedsMode"),
+        sourcePath: "needsResult.assumptions.transitionNeedsProjection.transitionMode"
+      },
+      {
+        value: getPath(analysisSettings, "transitionNeedsAssumptions.transitionMode")
+          ?? getPath(analysisSettings, "transitionNeedsAssumptions.projectionMode"),
+        sourcePath: "analysisSettings.transitionNeedsAssumptions.transitionMode"
+      },
+      {
+        value: getPath(lensModel, "transitionNeeds.transitionMode")
+          ?? getPath(lensModel, "transitionNeeds.projectionMode"),
+        sourcePath: "lensModel.transitionNeeds.transitionMode"
+      }
+    ]);
+
+    const durationMonthsCandidate = firstDefinedCandidate([
+      {
+        value: transitionConfig.transitionDurationMonths
+          ?? transitionConfig.durationMonths
+          ?? transitionConfig.bridgeDurationMonths
+          ?? transitionConfig.transitionPeriodMonths,
+        sourcePath: "input.transitionNeedsProjection.transitionDurationMonths"
+      },
+      {
+        value: traceInputs.transitionDurationMonths
+          ?? traceInputs.durationMonths
+          ?? traceInputs.bridgeDurationMonths
+          ?? traceInputs.transitionPeriodMonths,
+        sourcePath: "needsResult.trace.transitionNeeds.inputs.transitionDurationMonths"
+      },
+      {
+        value: getPath(needsResult, "assumptions.transitionNeedsProjection.transitionDurationMonths")
+          ?? getPath(needsResult, "assumptions.transitionDurationMonths"),
+        sourcePath: "needsResult.assumptions.transitionNeedsProjection.transitionDurationMonths"
+      },
+      {
+        value: getPath(analysisSettings, "transitionNeedsAssumptions.transitionDurationMonths")
+          ?? getPath(analysisSettings, "transitionNeedsAssumptions.durationMonths"),
+        sourcePath: "analysisSettings.transitionNeedsAssumptions.transitionDurationMonths"
+      },
+      {
+        value: getPath(lensModel, "transitionNeeds.transitionDurationMonths")
+          ?? getPath(lensModel, "transitionNeeds.durationMonths"),
+        sourcePath: "lensModel.transitionNeeds.transitionDurationMonths"
+      }
+    ]);
+
+    const durationYearsCandidate = firstDefinedCandidate([
+      {
+        value: transitionConfig.transitionDurationYears
+          ?? transitionConfig.durationYears
+          ?? transitionConfig.bridgeDurationYears
+          ?? transitionConfig.transitionPeriodYears,
+        sourcePath: "input.transitionNeedsProjection.transitionDurationYears"
+      },
+      {
+        value: traceInputs.transitionDurationYears
+          ?? traceInputs.durationYears
+          ?? traceInputs.bridgeDurationYears
+          ?? traceInputs.transitionPeriodYears,
+        sourcePath: "needsResult.trace.transitionNeeds.inputs.transitionDurationYears"
+      },
+      {
+        value: getPath(needsResult, "assumptions.transitionNeedsProjection.transitionDurationYears")
+          ?? getPath(needsResult, "assumptions.transitionDurationYears"),
+        sourcePath: "needsResult.assumptions.transitionNeedsProjection.transitionDurationYears"
+      },
+      {
+        value: getPath(analysisSettings, "transitionNeedsAssumptions.transitionDurationYears")
+          ?? getPath(analysisSettings, "transitionNeedsAssumptions.durationYears"),
+        sourcePath: "analysisSettings.transitionNeedsAssumptions.transitionDurationYears"
+      },
+      {
+        value: getPath(lensModel, "transitionNeeds.transitionDurationYears")
+          ?? getPath(lensModel, "transitionNeeds.durationYears"),
+        sourcePath: "lensModel.transitionNeeds.transitionDurationYears"
+      }
+    ]);
+
+    const projection = builder({
+      projectionYears: pointSpine.length ? pointSpine.length - 1 : 0,
+      valuationDate: valuationDateResult?.normalizedDate || null,
+      annualNeedPoints: pointSpine,
+      transitionNeedAmount: transitionNeeds,
+      transitionNeedSource: "needsResult.components.transitionNeeds",
+      transitionMode: modeCandidate.value,
+      transitionDurationMonths: durationMonthsCandidate.value,
+      transitionDurationYears: durationYearsCandidate.value,
+      sourcePath: "needsResult.components.transitionNeeds",
+      sourcePaths,
+      trace: {
+        transitionModeSource: modeCandidate.sourcePath,
+        transitionDurationMonthsSource: durationMonthsCandidate.sourcePath,
+        transitionDurationYearsSource: durationYearsCandidate.sourcePath,
+        traceRowInputs: traceInputs
+      }
+    });
+    appendIssues(warnings, projection?.warnings);
+    appendIssues(dataGaps, projection?.dataGaps);
+    return projection;
+  }
+
   function buildCoverageStrategyNeedLine(input) {
     const safeInput = isPlainObject(input) ? input : {};
     const lensModel = isPlainObject(safeInput.lensModel) ? safeInput.lensModel : {};
@@ -1846,18 +2029,29 @@
     );
 
     const transitionNeeds = roundMoney(Math.max(0, toOptionalNumber(needsResult?.components?.transitionNeeds) || 0));
+    const transitionNeedsLifetimeProjection = resolveTransitionNeedsLifetimeProjection(
+      transitionNeeds,
+      lensModel,
+      needsResult,
+      analysisSettings,
+      safeInput,
+      pointSpine,
+      valuationDateResult,
+      warnings,
+      dataGaps
+    );
+    const transitionNeedsProjectionByYear = new Map(
+      (
+        Array.isArray(transitionNeedsLifetimeProjection?.transitionNeedPoints)
+          ? transitionNeedsLifetimeProjection.transitionNeedPoints
+          : []
+      ).map(function (point) {
+        return [point.yearIndex, point];
+      })
+    );
     const componentPoints = [];
     const needPoints = [];
     const mortgageSupportOwnershipPointProofs = [];
-
-    if (transitionNeeds > 0) {
-      addUniqueIssue(
-        warnings,
-        "transition-needs-treated-as-death-year-obligation",
-        "Transition needs were treated as an immediate death-year obligation because no reliable duration/window was available.",
-        { transitionNeeds }
-      );
-    }
 
     if (debtModel.nonMortgageAmount > 0 && !debtLifetimeProjection) {
       addUniqueIssue(
@@ -1955,12 +2149,16 @@
       const finalExpensesForPoint = finalExpenseProjectionPoint
         ? finalExpenseProjectionPoint.finalExpenseNeedAmount
         : finalExpenses;
+      const transitionNeedsProjectionPoint = transitionNeedsProjectionByYear.get(yearIndex) || null;
+      const transitionNeedsForPoint = transitionNeedsProjectionPoint
+        ? transitionNeedsProjectionPoint.transitionNeedAmount
+        : transitionNeeds;
       const componentAmounts = {
         debtPayoff,
         mortgage,
         essentialSupport,
         discretionarySupport,
-        transitionNeeds,
+        transitionNeeds: transitionNeedsForPoint,
         education,
         finalExpenses: finalExpensesForPoint,
         healthcareExpenses
@@ -1991,7 +2189,9 @@
           source: "coverage-strategy-need-line-adapter",
           timing: componentKey === "finalExpenses"
             ? DEFAULT_FINAL_EXPENSE_TIMING
-            : (componentKey === "transitionNeeds" ? DEFAULT_TRANSITION_TIMING : null)
+            : (componentKey === "transitionNeeds"
+              ? (transitionNeedsProjectionPoint?.projectionMode || DEFAULT_TRANSITION_TIMING)
+              : null)
         }));
       });
 
@@ -2038,7 +2238,9 @@
               : debtModel.mortgageTiming,
             essentialSupport: "remaining-support-duration",
             discretionarySupport: discretionaryModel.included ? "remaining-support-duration" : "excluded",
-            transitionNeeds: DEFAULT_TRANSITION_TIMING,
+            transitionNeeds: transitionNeedsProjectionPoint
+              ? `transition-needs-${transitionNeedsProjectionPoint.projectionMode}`
+              : DEFAULT_TRANSITION_TIMING,
             education: educationProjectionPoint
               ? "record-level-education-obligation-schedule"
               : (educationLifetimeProjection?.aggregateFallbackUsed === true
@@ -2073,6 +2275,19 @@
                 debtsFallbackCount: debtProjectionPoint.debtsFallbackCount,
                 projectionModeCounts: debtProjectionPoint.trace?.projectionModeCounts || {},
                 sourceFactsUsed: debtProjectionPoint.trace || {}
+              }
+            : null,
+          transitionNeedsProjection: transitionNeedsProjectionPoint
+            ? {
+                transitionNeedAmount: transitionNeedsProjectionPoint.transitionNeedAmount,
+                sourceTransitionNeedAmount: transitionNeedsProjectionPoint.sourceTransitionNeedAmount,
+                projectionMode: transitionNeedsProjectionPoint.projectionMode,
+                elapsedMonths: transitionNeedsProjectionPoint.elapsedMonths,
+                remainingDurationMonths: transitionNeedsProjectionPoint.remainingDurationMonths,
+                durationMonths: transitionNeedsProjectionPoint.durationMonths,
+                currentBehaviorPreservedByFallback:
+                  transitionNeedsProjectionPoint.trace?.currentBehaviorPreservedByFallback === true,
+                sourceFactsUsed: transitionNeedsProjectionPoint.trace || {}
               }
             : null,
           educationProjection: educationProjectionPoint
@@ -2395,7 +2610,32 @@
         },
         transitionNeeds: {
           amount: transitionNeeds,
-          timing: DEFAULT_TRANSITION_TIMING
+          timing: transitionNeedsLifetimeProjection?.projectionMode || DEFAULT_TRANSITION_TIMING,
+          lifetimeProjection: transitionNeedsLifetimeProjection
+            ? {
+                status: transitionNeedsLifetimeProjection.status,
+                projectionMode: transitionNeedsLifetimeProjection.projectionMode,
+                assumptionsUsed: transitionNeedsLifetimeProjection.assumptionsUsed,
+                warningCount: Array.isArray(transitionNeedsLifetimeProjection.warnings)
+                  ? transitionNeedsLifetimeProjection.warnings.length
+                  : 0,
+                dataGapCount: Array.isArray(transitionNeedsLifetimeProjection.dataGaps)
+                  ? transitionNeedsLifetimeProjection.dataGaps.length
+                  : 0,
+                warnings: Array.isArray(transitionNeedsLifetimeProjection.warnings)
+                  ? transitionNeedsLifetimeProjection.warnings
+                  : [],
+                dataGaps: Array.isArray(transitionNeedsLifetimeProjection.dataGaps)
+                  ? transitionNeedsLifetimeProjection.dataGaps
+                  : [],
+                transitionNeedPoints: Array.isArray(transitionNeedsLifetimeProjection.transitionNeedPoints)
+                  ? transitionNeedsLifetimeProjection.transitionNeedPoints
+                  : [],
+                trace: isPlainObject(transitionNeedsLifetimeProjection.trace)
+                  ? transitionNeedsLifetimeProjection.trace
+                  : {}
+              }
+            : null
         },
         finalExpenses: {
           amount: finalExpenses,
