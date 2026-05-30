@@ -114,6 +114,19 @@
     };
   }
 
+  function uniqueStrings(values) {
+    const seen = new Set();
+    return (Array.isArray(values) ? values : []).reduce(function (list, value) {
+      const normalized = normalizeString(value);
+      if (!normalized || seen.has(normalized)) {
+        return list;
+      }
+      seen.add(normalized);
+      list.push(normalized);
+      return list;
+    }, []);
+  }
+
   function getNeedPoints(input) {
     if (Array.isArray(input?.needPoints)) {
       return input.needPoints;
@@ -204,6 +217,362 @@
     return clonePlainValue(modelByOwner[definition.ownerComponent] || {});
   }
 
+  function collectSourcePathsFromValue(value, output) {
+    if (Array.isArray(value)) {
+      value.forEach(function (entry) {
+        collectSourcePathsFromValue(entry, output);
+      });
+      return;
+    }
+    if (!isPlainObject(value)) {
+      return;
+    }
+    Object.keys(value).forEach(function (key) {
+      const entry = value[key];
+      if (key === "sourcePath" && normalizeString(entry)) {
+        output.push(entry);
+        return;
+      }
+      if (key === "sourcePaths" && Array.isArray(entry)) {
+        entry.forEach(function (sourcePath) {
+          if (normalizeString(sourcePath)) {
+            output.push(sourcePath);
+          }
+        });
+        return;
+      }
+      collectSourcePathsFromValue(entry, output);
+    });
+  }
+
+  function collectSupportSourcePaths(componentModel, annualAmountsByYear) {
+    const sourcePaths = [];
+    collectSourcePathsFromValue(componentModel, sourcePaths);
+    (Array.isArray(annualAmountsByYear) ? annualAmountsByYear : []).forEach(function (annualPoint) {
+      collectSourcePathsFromValue(annualPoint?.trace, sourcePaths);
+    });
+    return uniqueStrings(sourcePaths);
+  }
+
+  function getSupportSourceBasis(supportType, sourcePaths, componentModel, annualAmountsByYear) {
+    const joinedPaths = uniqueStrings(sourcePaths).join("|");
+    if (joinedPaths.indexOf("treatedOngoingSupport.mortgageAdjusted.") >= 0) {
+      return "treated-ongoing-support";
+    }
+    if (joinedPaths.indexOf("treatedOngoingSupport.") >= 0) {
+      return "treated-ongoing-support";
+    }
+    if (
+      joinedPaths.indexOf("ongoingSupport.annualTotalEssentialSupportCost") >= 0
+      || joinedPaths.indexOf("ongoingSupport.monthlyTotalEssentialSupportCost") >= 0
+      || joinedPaths.indexOf("ongoingSupport.annualDiscretionaryPersonalSpending") >= 0
+    ) {
+      return "raw-ongoing-support";
+    }
+    const firstTraceSource = normalizeString(annualAmountsByYear?.[0]?.trace?.source);
+    const componentTraceSource = normalizeString(componentModel?.trace?.source);
+    if (firstTraceSource.indexOf("needsResult.trace.") >= 0 || componentTraceSource.indexOf("needsResult.trace.") >= 0) {
+      return "needs-result-trace";
+    }
+    if (normalizeString(componentModel?.reconstructionStatus).indexOf("fallback") >= 0) {
+      return "fallback-aggregate";
+    }
+    if (supportType === "discretionarySupport" && Object.keys(componentModel || {}).length > 0) {
+      return "needs-result-trace";
+    }
+    return Object.keys(componentModel || {}).length > 0 ? "fallback-aggregate" : "unavailable";
+  }
+
+  function makeKnownIncludedField(fieldKey, label, ownerComponent, sourcePath) {
+    return {
+      fieldKey,
+      label,
+      ownerComponent,
+      sourcePath: sourcePath || null,
+      amountAvailable: false
+    };
+  }
+
+  function buildKnownIncludedSupportFields(supportType, sourcePaths) {
+    if (supportType === "discretionarySupport") {
+      return [
+        makeKnownIncludedField(
+          "annualDiscretionaryPersonalSpending",
+          "Discretionary personal spending",
+          "discretionarySupport",
+          sourcePaths.find(function (sourcePath) {
+            return sourcePath.indexOf("annualDiscretionaryPersonalSpending") >= 0;
+          }) || null
+        )
+      ];
+    }
+
+    const fields = [
+      makeKnownIncludedField("monthlyHousingSupportCost", "Housing support", "essentialSupport", null),
+      makeKnownIncludedField("nonMortgageHousingCosts", "Non-mortgage housing costs", "essentialSupport", null),
+      makeKnownIncludedField("monthlyUtilities", "Utilities", "essentialSupport", null),
+      makeKnownIncludedField("monthlyFoodCost", "Food", "essentialSupport", null),
+      makeKnownIncludedField("monthlyTransportationCost", "Transportation", "essentialSupport", null),
+      makeKnownIncludedField("monthlyChildcareAndDependentCareCost", "Childcare and dependent care", "essentialSupport", null),
+      makeKnownIncludedField("monthlyPhoneAndInternetCost", "Phone and internet", "essentialSupport", null),
+      makeKnownIncludedField("monthlyHouseholdSuppliesCost", "Household supplies", "essentialSupport", null),
+      makeKnownIncludedField("monthlyOtherHouseholdExpenses", "Other household costs", "essentialSupport", null),
+      makeKnownIncludedField("monthlyOtherInsuranceCost", "Insurance and support costs", "essentialSupport", null),
+      makeKnownIncludedField("monthlyHealthcareOutOfPocketCost", "Medical out-of-pocket if support-owned", "essentialSupport", null)
+    ];
+
+    return fields.map(function (field) {
+      const sourcePath = sourcePaths.find(function (candidatePath) {
+        return candidatePath.indexOf(field.fieldKey) >= 0;
+      });
+      return sourcePath ? { ...field, sourcePath } : field;
+    });
+  }
+
+  function createOverlapCandidate(ownerComponent, status, reason, evidence) {
+    return {
+      ownerComponent,
+      status,
+      reason,
+      evidence: isPlainObject(evidence) ? clonePlainValue(evidence) : {}
+    };
+  }
+
+  function getMortgageOverlapCandidate(componentModels) {
+    const trace = componentModels?.mortgageSupportOwnershipTrace || {};
+    if (trace.mortgagePaymentAlreadyInNeeds === true) {
+      return createOverlapCandidate(
+        "mortgage",
+        "proven-overlap",
+        "Mortgage payment support is marked as already represented in Needs/support.",
+        {
+          mortgagePaymentAlreadyInNeeds: true,
+          sourcePath: trace.mortgagePaymentAlreadyInNeedsSource || "treatedMortgagePaymentPlan.mortgagePaymentAlreadyInNeeds",
+          mortgageComponentOwnsImmediatePayoff: trace.mortgageComponentOwnsImmediatePayoff === true,
+          mortgageComponentOwnsPaymentSupport: trace.mortgageComponentOwnsPaymentSupport === true,
+          noSupportAmountChangedByLedger: true
+        }
+      );
+    }
+    if (trace.mortgageOwnedSupportActive === true || trace.mortgageComponentOwnsPaymentSupport === true) {
+      return createOverlapCandidate(
+        "mortgage",
+        "possible-overlap",
+        "Mortgage component owns a payment stream, but support source proof is not complete in the ledger row.",
+        {
+          mortgageOwnedSupportActive: trace.mortgageOwnedSupportActive === true,
+          mortgageComponentOwnsPaymentSupport: trace.mortgageComponentOwnsPaymentSupport === true
+        }
+      );
+    }
+    return createOverlapCandidate(
+      "mortgage",
+      "not-detected",
+      "No mortgage support overlap proof was present in component models.",
+      {}
+    );
+  }
+
+  function getHealthcareOverlapCandidate(componentModels) {
+    const projection = componentModels?.healthcare?.lifetimeProjection || {};
+    const supportOwnedCount = toOptionalNumber(projection.supportOwnedHealthcareExpenseExcludedCount) || 0;
+    if (supportOwnedCount > 0) {
+      return createOverlapCandidate(
+        "healthcare",
+        "not-detected",
+        "Support-owned healthcare-looking expenses were excluded from the healthcare component, so the ledger should not treat them as a healthcare double count.",
+        {
+          supportOwnedHealthcareExpenseExcludedCount: supportOwnedCount,
+          supportOwnedByCurrentPolicy: true,
+          excludedRecords: Array.isArray(projection.healthcareLookingExcludedRecords)
+            ? projection.healthcareLookingExcludedRecords
+            : []
+        }
+      );
+    }
+    if (projection.includedRecordCount > 0 && projection.aggregateFallbackUsed === true) {
+      return createOverlapCandidate(
+        "healthcare",
+        "possible-overlap",
+        "Healthcare projection has aggregate fallback data; support ownership cannot be proven from ledger rows alone.",
+        {
+          aggregateFallbackUsed: true,
+          includedRecordCount: projection.includedRecordCount || 0
+        }
+      );
+    }
+    return createOverlapCandidate(
+      "healthcare",
+      "not-detected",
+      "No support-owned healthcare overlap proof was present in component models.",
+      {}
+    );
+  }
+
+  function getPathSuggestingOwner(sourcePaths, ownerComponent) {
+    const patternsByOwner = {
+      nonMortgageDebt: ["debt", "minimumMonthlyPayment", "monthlyPayment"],
+      education: ["education", "educationSavings"],
+      finalExpense: ["finalExpense", "finalExpenses", "funeral", "burial"],
+      transitionNeeds: ["transition", "transitionNeeds"]
+    };
+    const patterns = patternsByOwner[ownerComponent] || [];
+    return sourcePaths.find(function (sourcePath) {
+      const normalized = sourcePath.toLowerCase();
+      return patterns.some(function (pattern) {
+        return normalized.indexOf(pattern.toLowerCase()) >= 0;
+      });
+    }) || null;
+  }
+
+  function getPossibleSourcePathOverlapCandidate(sourcePaths, ownerComponent) {
+    const matchingPath = getPathSuggestingOwner(sourcePaths, ownerComponent);
+    if (!matchingPath) {
+      return createOverlapCandidate(
+        ownerComponent,
+        "not-detected",
+        `No ${ownerComponent} support overlap source path was detected.`,
+        {}
+      );
+    }
+    return createOverlapCandidate(
+      ownerComponent,
+      "possible-overlap",
+      `A support source path suggests possible ${ownerComponent} ownership, but the ledger does not have enough proof to split support.`,
+      { sourcePath: matchingPath }
+    );
+  }
+
+  function buildSupportOwnershipDataGaps(sourceBasis, sourcePaths, candidates, supportType) {
+    const dataGaps = [];
+    if (sourceBasis === "fallback-aggregate" || sourceBasis === "needs-result-trace") {
+      dataGaps.push(createIssue(
+        "support-aggregate-source-too-broad-to-split",
+        "Support is represented as an aggregate source; the ledger cannot split support ownership without more granular source composition.",
+        { supportType, sourceBasis }
+      ));
+    }
+    if (!sourcePaths.length) {
+      dataGaps.push(createIssue(
+        "support-composition-source-paths-missing",
+        "Support ownership diagnostics could not find granular support source paths.",
+        { supportType }
+      ));
+    }
+    candidates.forEach(function (candidate) {
+      if (candidate.status === "proven-overlap") {
+        dataGaps.push(createIssue(
+          "support-dedicated-owner-overlap-diagnostic-only",
+          "A dedicated component overlap was detected, but this diagnostic ledger pass did not split or subtract support.",
+          { supportType, ownerComponent: candidate.ownerComponent }
+        ));
+      } else if (candidate.status === "possible-overlap") {
+        dataGaps.push(createIssue(
+          "support-dedicated-owner-overlap-unproven",
+          "A possible dedicated component overlap was detected, but source proof was insufficient for any support split.",
+          { supportType, ownerComponent: candidate.ownerComponent }
+        ));
+      }
+    });
+    if (
+      candidates.some(function (candidate) {
+        return candidate.ownerComponent === "healthcare"
+          && candidate.evidence?.supportOwnedByCurrentPolicy === true;
+      })
+    ) {
+      dataGaps.push(createIssue(
+        "support-owned-healthcare-policy-diagnostic",
+        "Support-owned healthcare-looking expenses are currently kept in support and excluded from healthcare; future ownership cleanup should preserve that policy or change it explicitly.",
+        { supportType }
+      ));
+    }
+    return dataGaps;
+  }
+
+  function getSupportOwnershipStatus(sourceBasis, candidates, dataGaps, annualAmountsByYear) {
+    const hasAmount = (Array.isArray(annualAmountsByYear) ? annualAmountsByYear : []).some(function (point) {
+      return Math.abs(toOptionalNumber(point?.amount) || 0) > DEFAULT_TOLERANCE;
+    });
+    if (!hasAmount && sourceBasis === "unavailable") {
+      return "unavailable";
+    }
+    if (candidates.some(function (candidate) { return candidate.status === "proven-overlap"; })) {
+      return "support-owned-with-proven-overlap";
+    }
+    if (candidates.some(function (candidate) { return candidate.status === "possible-overlap"; })) {
+      return "support-owned-with-possible-overlap";
+    }
+    if (
+      sourceBasis === "fallback-aggregate"
+      || sourceBasis === "needs-result-trace"
+      || dataGaps.some(function (gap) {
+        return gap.code === "support-aggregate-source-too-broad-to-split"
+          || gap.code === "support-composition-source-paths-missing";
+      })
+    ) {
+      return "aggregate-ownership-ambiguous";
+    }
+    return "support-owned-clean";
+  }
+
+  function buildSupportOwnershipSummary(definition, annualAmountsByYear, componentModels) {
+    if (definition.ownerComponent !== "essentialSupport" && definition.ownerComponent !== "discretionarySupport") {
+      return null;
+    }
+    const componentModel = getComponentModelTrace(componentModels, definition);
+    const sourcePaths = collectSupportSourcePaths(componentModel, annualAmountsByYear);
+    const sourceBasis = getSupportSourceBasis(definition.ownerComponent, sourcePaths, componentModel, annualAmountsByYear);
+    const candidates = definition.ownerComponent === "essentialSupport"
+      ? [
+          getMortgageOverlapCandidate(componentModels),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "nonMortgageDebt"),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "education"),
+          getHealthcareOverlapCandidate(componentModels),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "finalExpense"),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "transitionNeeds")
+        ]
+      : [
+          createOverlapCandidate(
+            "mortgage",
+            "not-detected",
+            "Mortgage support ownership is evaluated against Essential Support, not Discretionary Support.",
+            {}
+          ),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "nonMortgageDebt"),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "education"),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "healthcare"),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "finalExpense"),
+          getPossibleSourcePathOverlapCandidate(sourcePaths, "transitionNeeds")
+        ];
+    const possibleOverlapCandidates = candidates.filter(function (candidate) {
+      return candidate.status !== "not-detected";
+    });
+    const provenDedicatedOwnerOverlaps = candidates.filter(function (candidate) {
+      return candidate.status === "proven-overlap";
+    });
+    const ambiguousOverlapCandidates = candidates.filter(function (candidate) {
+      return candidate.status === "possible-overlap";
+    });
+    const dataGaps = buildSupportOwnershipDataGaps(sourceBasis, sourcePaths, candidates, definition.ownerComponent);
+
+    return {
+      supportType: definition.ownerComponent,
+      sourceBasis,
+      sourcePaths,
+      knownIncludedFields: buildKnownIncludedSupportFields(definition.ownerComponent, sourcePaths),
+      possibleOverlapCandidates,
+      provenDedicatedOwnerOverlaps,
+      ambiguousOverlapCandidates,
+      allOwnerCandidates: candidates,
+      dataGaps,
+      ownershipStatus: getSupportOwnershipStatus(sourceBasis, candidates, dataGaps, annualAmountsByYear),
+      graphMathChanged: false,
+      supportAmountsChanged: false,
+      supportSplitApplied: false,
+      diagnosticOnly: true
+    };
+  }
+
   function collectComponentIssues(componentModels, definition, issueKey) {
     const model = getComponentModelTrace(componentModels, definition);
     const issues = Array.isArray(model?.[issueKey]) ? model[issueKey] : [];
@@ -280,6 +649,11 @@
       }
 
       const firstPoint = annualAmountsByYear[0] || {};
+      const supportOwnershipSummary = buildSupportOwnershipSummary(
+        definition,
+        annualAmountsByYear,
+        componentModels
+      );
       rows.push({
         obligationId: `coverage-strategy:${definition.ownerComponent}`,
         sourceType: definition.sourceType,
@@ -298,10 +672,14 @@
         trace: {
           source: "current-coverage-strategy-need-line-output",
           componentKey: definition.componentKey,
+          ...(supportOwnershipSummary ? { supportOwnershipSummary } : {}),
           componentModel: getComponentModelTrace(componentModels, definition)
         },
+        ...(supportOwnershipSummary ? { supportOwnershipSummary } : {}),
         warnings: collectComponentIssues(componentModels, definition, "warnings"),
-        dataGaps: collectComponentIssues(componentModels, definition, "dataGaps")
+        dataGaps: collectComponentIssues(componentModels, definition, "dataGaps").concat(
+          supportOwnershipSummary ? supportOwnershipSummary.dataGaps : []
+        )
       });
       return rows;
     }, []);

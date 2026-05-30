@@ -181,10 +181,18 @@ function createComponentModels() {
       }
     },
     support: {
-      reconstructionStatus: "current-output"
+      reconstructionStatus: "current-output",
+      trace: {
+        source: "needsResult.trace.essentialSupport",
+        sourcePaths: ["treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost"]
+      }
     },
     discretionarySupport: {
-      included: true
+      included: true,
+      trace: {
+        source: "needsResult.trace.discretionarySupport",
+        sourcePaths: ["ongoingSupport.annualDiscretionaryPersonalSpending"]
+      }
     }
   };
 }
@@ -229,6 +237,7 @@ const pageSource = readRepoFile("pages/coverage-strategy.html");
 
 assert.match(ledgerSource, /coverage-strategy-obligation-ledger-v1/);
 assert.match(ledgerSource, /buildCoverageStrategyObligationLedger/);
+assert.match(ledgerSource, /supportOwnershipSummary/);
 assert.match(ledgerSource, /diagnosticOnly:\s*true/);
 assert.match(ledgerSource, /ledgerDrivesNeedLine:\s*false/);
 assert.doesNotMatch(ledgerSource, /document\.|window\.localStorage|localStorage|sessionStorage|indexedDB/);
@@ -271,6 +280,30 @@ assert.equal(rowByOwner.get("finalExpense").sourceComponentKey, "finalExpenses")
 assert.equal(rowByOwner.get("transitionNeeds").sourceComponentKey, "transitionNeeds");
 assert.equal(rowByOwner.get("essentialSupport").sourceComponentKey, "essentialSupport");
 assert.equal(rowByOwner.get("discretionarySupport").sourceComponentKey, "discretionarySupport");
+assert.ok(rowByOwner.get("essentialSupport").supportOwnershipSummary);
+assert.ok(rowByOwner.get("discretionarySupport").supportOwnershipSummary);
+assert.equal(rowByOwner.get("essentialSupport").supportOwnershipSummary.supportType, "essentialSupport");
+assert.equal(rowByOwner.get("essentialSupport").supportOwnershipSummary.sourceBasis, "treated-ongoing-support");
+assert.equal(rowByOwner.get("essentialSupport").supportOwnershipSummary.graphMathChanged, false);
+assert.equal(rowByOwner.get("essentialSupport").supportOwnershipSummary.supportAmountsChanged, false);
+assert.equal(rowByOwner.get("essentialSupport").supportOwnershipSummary.supportSplitApplied, false);
+assert.ok(
+  rowByOwner.get("essentialSupport").supportOwnershipSummary.sourcePaths.includes(
+    "treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost"
+  )
+);
+assert.ok(
+  rowByOwner.get("essentialSupport").supportOwnershipSummary.knownIncludedFields.some(
+    (field) => field.fieldKey === "monthlyHealthcareOutOfPocketCost"
+  )
+);
+assert.equal(rowByOwner.get("discretionarySupport").supportOwnershipSummary.supportType, "discretionarySupport");
+assert.equal(rowByOwner.get("discretionarySupport").supportOwnershipSummary.sourceBasis, "raw-ongoing-support");
+assert.ok(
+  rowByOwner.get("discretionarySupport").supportOwnershipSummary.knownIncludedFields.some(
+    (field) => field.fieldKey === "annualDiscretionaryPersonalSpending"
+  )
+);
 assert.equal(rowByOwner.get("education").annualAmountsByYear[0].grossAmount, 25000);
 assert.equal(rowByOwner.get("education").annualAmountsByYear[0].offsetAmount, 5000);
 assert.equal(rowByOwner.get("education").annualAmountsByYear[0].netAmount, 20000);
@@ -349,6 +382,134 @@ assert.equal(diagnosticZeroLedger.rows.length, 1);
 assert.equal(diagnosticZeroLedger.rows[0].ownerComponent, "healthcare");
 assert.equal(diagnosticZeroLedger.rows[0].warnings[0].code, "healthcare-diagnostic-warning");
 
+const rawSupportLedger = buildLedger({
+  needPoints: [{
+    yearIndex: 0,
+    calendarYear: 2026,
+    needAmount: 12000,
+    componentAmounts: {
+      essentialSupport: 12000
+    }
+  }],
+  componentModels: {
+    support: {
+      reconstructionStatus: "current-output",
+      trace: {
+        source: "needsResult.trace.essentialSupport",
+        sourcePaths: ["ongoingSupport.annualTotalEssentialSupportCost"]
+      }
+    }
+  }
+});
+assert.equal(
+  rawSupportLedger.rows.find((row) => row.ownerComponent === "essentialSupport").supportOwnershipSummary.sourceBasis,
+  "raw-ongoing-support"
+);
+
+const fallbackSupportLedger = buildLedger({
+  needPoints: [{
+    yearIndex: 0,
+    calendarYear: 2026,
+    needAmount: 12000,
+    componentAmounts: {
+      essentialSupport: 12000
+    }
+  }],
+  componentModels: {
+    support: {
+      reconstructionStatus: "adjusted-support-fallback"
+    }
+  }
+});
+const fallbackSupportSummary = fallbackSupportLedger.rows
+  .find((row) => row.ownerComponent === "essentialSupport")
+  .supportOwnershipSummary;
+assert.equal(fallbackSupportSummary.sourceBasis, "fallback-aggregate");
+assert.equal(fallbackSupportSummary.ownershipStatus, "aggregate-ownership-ambiguous");
+assert.ok(fallbackSupportSummary.dataGaps.some((gap) => gap.code === "support-aggregate-source-too-broad-to-split"));
+assert.ok(fallbackSupportSummary.dataGaps.some((gap) => gap.code === "support-composition-source-paths-missing"));
+
+const mortgageOverlapLedger = buildLedger({
+  needPoints: [{
+    yearIndex: 0,
+    calendarYear: 2026,
+    needAmount: 50000,
+    componentAmounts: {
+      essentialSupport: 50000
+    }
+  }],
+  componentModels: {
+    support: {
+      reconstructionStatus: "current-output",
+      trace: {
+        source: "needsResult.trace.essentialSupport",
+        sourcePaths: ["treatedOngoingSupport.mortgageAdjusted.annualTotalEssentialSupportCost"]
+      }
+    },
+    mortgageSupportOwnershipTrace: {
+      mortgagePaymentAlreadyInNeeds: true,
+      mortgagePaymentAlreadyInNeedsSource: "treatedMortgagePaymentPlan.mortgagePaymentAlreadyInNeeds",
+      mortgageComponentOwnsImmediatePayoff: true,
+      mortgageComponentOwnsPaymentSupport: false
+    }
+  }
+});
+const mortgageSupportRow = mortgageOverlapLedger.rows.find((row) => row.ownerComponent === "essentialSupport");
+const mortgageSummary = mortgageSupportRow.supportOwnershipSummary;
+assert.equal(mortgageSupportRow.annualAmountsByYear[0].amount, 50000);
+assert.equal(mortgageSummary.ownershipStatus, "support-owned-with-proven-overlap");
+assert.ok(mortgageSummary.provenDedicatedOwnerOverlaps.some((candidate) => candidate.ownerComponent === "mortgage"));
+assert.ok(mortgageSummary.dataGaps.some((gap) => gap.code === "support-dedicated-owner-overlap-diagnostic-only"));
+assert.equal(mortgageOverlapLedger.allYearsMatchNeedLine, true);
+
+const healthcareSupportOwnedLedger = buildLedger({
+  needPoints: [{
+    yearIndex: 0,
+    calendarYear: 2026,
+    needAmount: 50000,
+    componentAmounts: {
+      essentialSupport: 50000,
+      healthcareExpenses: 0
+    }
+  }],
+  componentModels: {
+    support: {
+      reconstructionStatus: "current-output",
+      trace: {
+        source: "needsResult.trace.essentialSupport",
+        sourcePaths: ["ongoingSupport.monthlyHealthcareOutOfPocketCost"]
+      }
+    },
+    healthcare: {
+      lifetimeProjection: {
+        status: "complete",
+        supportOwnedHealthcareExpenseExcludedCount: 1,
+        healthcareLookingExcludedRecords: [{
+          exclusionCode: "support-owned-healthcare-expense-excluded",
+          trace: {
+            ownedByField: "monthlyHealthcareOutOfPocketCost"
+          }
+        }]
+      }
+    }
+  }
+});
+const healthcareCandidate = healthcareSupportOwnedLedger.rows
+  .find((row) => row.ownerComponent === "essentialSupport")
+  .supportOwnershipSummary
+  .allOwnerCandidates
+  .find((candidate) => candidate.ownerComponent === "healthcare");
+assert.equal(healthcareCandidate.status, "not-detected");
+assert.equal(healthcareCandidate.evidence.supportOwnedByCurrentPolicy, true);
+assert.equal(
+  healthcareSupportOwnedLedger.rows
+    .find((row) => row.ownerComponent === "essentialSupport")
+    .supportOwnershipSummary
+    .provenDedicatedOwnerOverlaps
+    .some((candidate) => candidate.ownerComponent === "healthcare"),
+  false
+);
+
 const buildNeedLineWithLedger = loadNeedLineBuilder({ withLedger: true });
 const buildNeedLineWithoutLedger = loadNeedLineBuilder({ withLedger: false });
 const needLineInput = {
@@ -401,4 +562,16 @@ assert.equal(
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.coverageStrategyObligationLedger.allYearsMatchNeedLine,
   true
+);
+assert.ok(
+  snapshot.coverageStrategyGeneratedOutputs.coverageStrategyObligationLedger.rows
+    .find((row) => row.ownerComponent === "essentialSupport")
+    .supportOwnershipSummary
+);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.coverageStrategyObligationLedger.rows
+    .find((row) => row.ownerComponent === "essentialSupport")
+    .supportOwnershipSummary
+    .graphMathChanged,
+  false
 );
