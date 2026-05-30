@@ -358,14 +358,18 @@ assert.equal(result.componentModels.education.lifetimeProjection.educationSaving
 
 assert.equal(result.needPoints[0].componentAmounts.transitionNeeds, 15000);
 assert.equal(result.needPoints[5].componentAmounts.transitionNeeds, 15000);
-assert.equal(result.needPoints[0].trace.transitionNeedsProjection.projectionMode, "flatFallback");
+assert.equal(result.needPoints[0].trace.transitionNeedsProjection.projectionMode, "deathTriggeredAtEachProjectionPoint");
 assert.equal(result.needPoints[0].trace.transitionNeedsProjection.currentBehaviorPreservedByFallback, true);
-assert.equal(result.componentModels.transitionNeeds.lifetimeProjection.projectionMode, "flatFallback");
+assert.equal(result.componentModels.transitionNeeds.lifetimeProjection.projectionMode, "deathTriggeredAtEachProjectionPoint");
 assert.equal(
   result.componentModels.transitionNeeds.lifetimeProjection.assumptionsUsed.currentBehaviorPreservedByFallback,
   true
 );
-assert.ok(issueCodes(result.warnings).includes("transition-needs-duration-unavailable-flat-fallback"));
+assert.equal(result.componentModels.transitionNeeds.lifetimeProjection.assumptionsUsed.inflationApplied, false);
+assert.equal(
+  result.componentModels.transitionNeeds.lifetimeProjection.assumptionsUsed.inflationDeferredToGlobalInflationPass,
+  true
+);
 
 const educationSavingsOffsetResult = buildCoverageStrategyNeedLine({
   lensModel: createLensModel({

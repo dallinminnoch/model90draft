@@ -3,8 +3,8 @@
   const lensAnalysis = root.lensAnalysis || (root.lensAnalysis = {});
 
   // Owner: Coverage Strategy transition needs lifetime projection.
-  // Purpose: project short-term transition needs across future death years when
-  // explicit timing or duration facts exist. Non-goals: no UI, persistence,
+  // Purpose: project death-triggered transition needs across future Coverage
+  // Strategy points. Non-goals: no UI, persistence, inflation,
   // resource offsets, support math, education, debt, mortgage, or chart logic.
   const COVERAGE_STRATEGY_TRANSITION_NEEDS_LIFETIME_PROJECTION_VERSION =
     "coverage-strategy-transition-needs-lifetime-projection-v1";
@@ -129,7 +129,7 @@
       || key === "onetimeimmediate"
       || key === "immediate"
     ) {
-      return "deathYearOnly";
+      return "legacyDeathYearOnly";
     }
     if (
       key === "durationbridge"
@@ -138,7 +138,7 @@
       || key === "transitionbridge"
       || key === "durationbasedtemporarysupport"
     ) {
-      return "durationBridge";
+      return "legacyDurationBridge";
     }
     if (
       key === "flatfallback"
@@ -146,7 +146,7 @@
       || key === "unknown"
       || key === "unmodeled"
     ) {
-      return "flatFallback";
+      return "deathTriggeredAtEachProjectionPoint";
     }
     if (key === "unavailable") {
       return "unavailable";
@@ -249,44 +249,25 @@
     );
     const normalizedMode = normalizeProjectionMode(rawMode);
 
-    if (normalizedMode === "deathYearOnly") {
-      return {
-        projectionMode: "deathYearOnly",
-        rawMode,
-        modeSource: "explicit-transition-mode",
-        currentBehaviorPreservedByFallback: false
-      };
-    }
-
-    if (normalizedMode === "durationBridge") {
-      if (durationResult.durationMonths != null && durationResult.durationMonths > 0) {
-        return {
-          projectionMode: "durationBridge",
-          rawMode,
-          modeSource: "explicit-transition-mode",
-          currentBehaviorPreservedByFallback: false
-        };
-      }
+    if (normalizedMode === "legacyDeathYearOnly" || normalizedMode === "legacyDurationBridge") {
       addIssue(
         warnings,
-        "transition-needs-duration-unavailable-flat-fallback",
-        "Transition needs requested durationBridge projection but no reliable duration was available; current flat behavior was preserved.",
-        { transitionMode: rawMode || null }
+        "transition-needs-legacy-burn-down-mode-quarantined",
+        "Transition needs burn-down modes are not active in Coverage Strategy because each point evaluates a new death-triggered need.",
+        {
+          transitionMode: rawMode || null,
+          normalizedLegacyMode: normalizedMode,
+          effectiveTransitionMode: "deathTriggeredAtEachProjectionPoint",
+          durationMonths: durationResult.durationMonths
+        }
       );
       return {
-        projectionMode: "flatFallback",
+        projectionMode: "deathTriggeredAtEachProjectionPoint",
         rawMode,
-        modeSource: "explicit-transition-mode-missing-duration",
-        currentBehaviorPreservedByFallback: true
-      };
-    }
-
-    if (durationResult.durationMonths != null && durationResult.durationMonths > 0) {
-      return {
-        projectionMode: "durationBridge",
-        rawMode,
-        modeSource: "duration-facts",
-        currentBehaviorPreservedByFallback: false
+        modeSource: "legacy-burn-down-mode-quarantined",
+        currentBehaviorPreservedByFallback: true,
+        legacyModeQuarantined: true,
+        unsupportedLegacyMode: normalizedMode
       };
     }
 
@@ -299,17 +280,13 @@
       };
     }
 
-    addIssue(
-      warnings,
-      "transition-needs-duration-unavailable-flat-fallback",
-      "Transition needs were kept flat because no reliable one-time or duration basis was available.",
-      { transitionMode: rawMode || null }
-    );
     return {
-      projectionMode: "flatFallback",
+      projectionMode: "deathTriggeredAtEachProjectionPoint",
       rawMode,
-      modeSource: rawMode ? "unsupported-transition-mode" : "no-transition-mode",
-      currentBehaviorPreservedByFallback: true
+      modeSource: rawMode ? "unsupported-transition-mode-normalized" : "coverage-strategy-default",
+      currentBehaviorPreservedByFallback: true,
+      legacyModeQuarantined: false,
+      unsupportedLegacyMode: null
     };
   }
 
@@ -318,22 +295,8 @@
     const elapsedMonths = pointDate && valuationDateResult
       ? Math.max(0, monthsBetween(valuationDateResult.date, pointDate.date))
       : Math.max(0, point.yearIndex * 12);
-    let transitionNeedAmount = sourceAmount;
-    let remainingDurationMonths = durationResult.durationMonths;
-
-    if (modeResult.projectionMode === "deathYearOnly") {
-      transitionNeedAmount = point.yearIndex === 0 ? sourceAmount : 0;
-      remainingDurationMonths = point.yearIndex === 0 ? 0 : null;
-    } else if (modeResult.projectionMode === "durationBridge") {
-      remainingDurationMonths = Math.max(0, (durationResult.durationMonths || 0) - elapsedMonths);
-      const remainingRatio = durationResult.durationMonths && durationResult.durationMonths > 0
-        ? remainingDurationMonths / durationResult.durationMonths
-        : 0;
-      transitionNeedAmount = roundMoney(sourceAmount * remainingRatio);
-    } else if (modeResult.projectionMode === "unavailable") {
-      transitionNeedAmount = 0;
-      remainingDurationMonths = null;
-    }
+    const transitionNeedAmount = modeResult.projectionMode === "unavailable" ? 0 : sourceAmount;
+    const remainingDurationMonths = null;
 
     return {
       yearIndex: point.yearIndex,
@@ -352,16 +315,21 @@
         source: "coverage-strategy-transition-needs-lifetime-projection",
         projectionMode: modeResult.projectionMode,
         modeSource: modeResult.modeSource,
-        transitionNeedDeclineReason: modeResult.projectionMode === "durationBridge"
-          ? "duration-bridge-remaining-need"
-          : (modeResult.projectionMode === "deathYearOnly"
-            ? "one-time-death-year-transition-need"
-            : (modeResult.projectionMode === "flatFallback"
-              ? "current-flat-transition-need-preserved"
-              : "transition-need-unavailable")),
+        transitionNeedSemantics:
+          modeResult.projectionMode === "deathTriggeredAtEachProjectionPoint"
+            ? "death-triggered-at-each-projection-point"
+            : "transition-need-unavailable",
+        transitionNeedDeclineReason:
+          modeResult.projectionMode === "deathTriggeredAtEachProjectionPoint"
+            ? "no-decline-each-point-evaluates-new-death-triggered-need"
+            : "transition-need-unavailable",
         currentBehaviorPreservedByFallback: modeResult.currentBehaviorPreservedByFallback === true,
         durationBasis: durationResult.durationBasis,
-        sourceTransitionNeedAmount: sourceAmount
+        sourceTransitionNeedAmount: sourceAmount,
+        inflationApplied: false,
+        inflationDeferredToGlobalInflationPass: true,
+        legacyModeQuarantined: modeResult.legacyModeQuarantined === true,
+        unsupportedLegacyMode: modeResult.unsupportedLegacyMode || null
       }
     };
   }
@@ -398,6 +366,8 @@
           durationMonths: durationResult.durationMonths,
           durationBasis: durationResult.durationBasis,
           currentBehaviorPreservedByFallback: false,
+          inflationApplied: false,
+          inflationDeferredToGlobalInflationPass: true,
           sourcePath: safeInput.sourcePath || null,
           sourcePaths: Array.isArray(safeInput.sourcePaths) ? clonePlainValue(safeInput.sourcePaths) : []
         },
@@ -406,6 +376,9 @@
         trace: {
           source: "coverage-strategy-transition-needs-lifetime-projection",
           pointCount: transitionNeedPoints.length,
+          transitionNeedSemantics: "unavailable",
+          inflationApplied: false,
+          inflationDeferredToGlobalInflationPass: true,
           displayHtmlUsed: false,
           storageUsed: false,
           inputMutated: false
@@ -434,6 +407,11 @@
         durationYears: durationResult.durationMonths == null ? null : Number((durationResult.durationMonths / 12).toFixed(4)),
         durationBasis: durationResult.durationBasis,
         currentBehaviorPreservedByFallback: modeResult.currentBehaviorPreservedByFallback === true,
+        legacyModeQuarantined: modeResult.legacyModeQuarantined === true,
+        unsupportedLegacyMode: modeResult.unsupportedLegacyMode || null,
+        transitionNeedSemantics: "death-triggered-at-each-projection-point",
+        inflationApplied: false,
+        inflationDeferredToGlobalInflationPass: true,
         sourcePath: safeInput.sourcePath || null,
         sourcePaths: Array.isArray(safeInput.sourcePaths) ? clonePlainValue(safeInput.sourcePaths) : []
       },
@@ -442,8 +420,13 @@
       trace: {
         source: "coverage-strategy-transition-needs-lifetime-projection",
         pointCount: transitionNeedPoints.length,
-        transitionNeedDeclineMode: modeResult.projectionMode,
+        transitionNeedDeclineMode: "none",
+        transitionNeedSemantics: "death-triggered-at-each-projection-point",
         currentBehaviorPreservedByFallback: modeResult.currentBehaviorPreservedByFallback === true,
+        legacyModeQuarantined: modeResult.legacyModeQuarantined === true,
+        unsupportedLegacyMode: modeResult.unsupportedLegacyMode || null,
+        inflationApplied: false,
+        inflationDeferredToGlobalInflationPass: true,
         displayHtmlUsed: false,
         storageUsed: false,
         inputMutated: false

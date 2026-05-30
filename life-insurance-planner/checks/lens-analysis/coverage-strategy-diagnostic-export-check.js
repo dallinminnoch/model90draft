@@ -269,18 +269,29 @@ const diagnosticInput = {
       transitionNeeds: {
         lifetimeProjection: {
           status: "complete",
-          projectionMode: "durationBridge",
+          projectionMode: "deathTriggeredAtEachProjectionPoint",
           assumptionsUsed: {
             transitionNeedAmount: 24000,
             durationMonths: 24,
-            currentBehaviorPreservedByFallback: false
+            currentBehaviorPreservedByFallback: true,
+            inflationApplied: false,
+            inflationDeferredToGlobalInflationPass: true,
+            transitionNeedSemantics: "death-triggered-at-each-projection-point",
+            legacyModeQuarantined: true,
+            unsupportedLegacyMode: "legacyDurationBridge"
           },
           transitionNeedPoints: [
-            { yearIndex: 0, transitionNeedAmount: 24000, projectionMode: "durationBridge" },
-            { yearIndex: 1, transitionNeedAmount: 12000, projectionMode: "durationBridge" },
-            { yearIndex: 2, transitionNeedAmount: 0, projectionMode: "durationBridge" }
+            { yearIndex: 0, transitionNeedAmount: 24000, projectionMode: "deathTriggeredAtEachProjectionPoint" },
+            { yearIndex: 1, transitionNeedAmount: 24000, projectionMode: "deathTriggeredAtEachProjectionPoint" },
+            { yearIndex: 2, transitionNeedAmount: 24000, projectionMode: "deathTriggeredAtEachProjectionPoint" }
           ],
-          warnings: [],
+          warnings: [
+            {
+              code: "transition-needs-legacy-burn-down-mode-quarantined",
+              message: "Transition needs burn-down modes are not active in Coverage Strategy because each point evaluates a new death-triggered need.",
+              details: {}
+            }
+          ],
           dataGaps: []
         }
       },
@@ -504,10 +515,17 @@ assert.equal(
   1
 );
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection);
-assert.equal(snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.projectionMode, "durationBridge");
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.projectionMode,
+  "deathTriggeredAtEachProjectionPoint"
+);
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.transitionNeedPoints[1].transitionNeedAmount,
-  12000
+  24000
+);
+assert.equal(
+  snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.assumptionsUsed.inflationDeferredToGlobalInflationPass,
+  true
 );
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection);
 assert.equal(snapshot.coverageStrategyGeneratedOutputs.educationLifetimeProjection.aggregateFallbackUsed, false);
@@ -635,7 +653,8 @@ assert.match(html, /support-owned-healthcare-expense-excluded/);
 assert.match(html, /monthlyHealthcareOutOfPocketCost/);
 assert.match(html, /educationLifetimeProjection/);
 assert.match(html, /transitionNeedsLifetimeProjection/);
-assert.match(html, /durationBridge/);
+assert.match(html, /deathTriggeredAtEachProjectionPoint/);
+assert.match(html, /transition-needs-legacy-burn-down-mode-quarantined/);
 assert.match(html, /educationSavingsOffset/);
 assert.match(html, /coverageStrategyScenarioSettings/);
 assert.match(html, /educationScenarioSettingsConsumed/);

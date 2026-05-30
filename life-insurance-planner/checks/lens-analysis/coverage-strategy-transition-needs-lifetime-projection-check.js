@@ -129,19 +129,39 @@ const helper =
   helperContext.LensApp.lensAnalysis.calculateCoverageStrategyTransitionNeedsLifetimeProjection;
 assert.equal(typeof helper, "function");
 
+const constantDeathTriggered = runProjection(helper, {
+  transitionNeedAmount: 25000,
+  projectionYears: 15
+});
+assert.equal(constantDeathTriggered.status, "complete");
+assert.equal(constantDeathTriggered.projectionMode, "deathTriggeredAtEachProjectionPoint");
+assert.equal(constantDeathTriggered.transitionNeedPoints.length, 16);
+constantDeathTriggered.transitionNeedPoints.forEach(function (point) {
+  assert.equal(point.transitionNeedAmount, 25000);
+  assert.equal(point.trace.transitionNeedSemantics, "death-triggered-at-each-projection-point");
+  assert.equal(point.trace.inflationApplied, false);
+  assert.equal(point.trace.inflationDeferredToGlobalInflationPass, true);
+});
+assert.equal(
+  constantDeathTriggered.transitionNeedPoints[15].trace.transitionNeedDeclineReason,
+  "no-decline-each-point-evaluates-new-death-triggered-need"
+);
+assert.equal(constantDeathTriggered.assumptionsUsed.inflationApplied, false);
+assert.equal(constantDeathTriggered.assumptionsUsed.inflationDeferredToGlobalInflationPass, true);
+
 const deathYearOnly = runProjection(helper, {
   transitionNeedAmount: 25000,
   transitionMode: "deathYearOnly",
   projectionYears: 3
 });
 assert.equal(deathYearOnly.status, "complete");
-assert.equal(deathYearOnly.projectionMode, "deathYearOnly");
+assert.equal(deathYearOnly.projectionMode, "deathTriggeredAtEachProjectionPoint");
 assert.equal(deathYearOnly.transitionNeedPoints[0].transitionNeedAmount, 25000);
-assert.equal(deathYearOnly.transitionNeedPoints[1].transitionNeedAmount, 0);
-assert.equal(
-  deathYearOnly.transitionNeedPoints[1].trace.transitionNeedDeclineReason,
-  "one-time-death-year-transition-need"
-);
+assert.equal(deathYearOnly.transitionNeedPoints[1].transitionNeedAmount, 25000);
+assert.equal(deathYearOnly.transitionNeedPoints[3].transitionNeedAmount, 25000);
+assert.equal(deathYearOnly.assumptionsUsed.legacyModeQuarantined, true);
+assert.equal(deathYearOnly.assumptionsUsed.unsupportedLegacyMode, "legacyDeathYearOnly");
+assert.ok(issueCodes(deathYearOnly.warnings).includes("transition-needs-legacy-burn-down-mode-quarantined"));
 
 const durationBridge = runProjection(helper, {
   transitionNeedAmount: 24000,
@@ -150,34 +170,38 @@ const durationBridge = runProjection(helper, {
   projectionYears: 4
 });
 assert.equal(durationBridge.status, "complete");
-assert.equal(durationBridge.projectionMode, "durationBridge");
+assert.equal(durationBridge.projectionMode, "deathTriggeredAtEachProjectionPoint");
 assert.equal(durationBridge.transitionNeedPoints[0].transitionNeedAmount, 24000);
-assert.equal(durationBridge.transitionNeedPoints[1].transitionNeedAmount, 12000);
-assert.equal(durationBridge.transitionNeedPoints[2].transitionNeedAmount, 0);
-assert.equal(durationBridge.transitionNeedPoints[4].transitionNeedAmount, 0);
+assert.equal(durationBridge.transitionNeedPoints[1].transitionNeedAmount, 24000);
+assert.equal(durationBridge.transitionNeedPoints[2].transitionNeedAmount, 24000);
+assert.equal(durationBridge.transitionNeedPoints[4].transitionNeedAmount, 24000);
 assert.equal(durationBridge.assumptionsUsed.durationMonths, 24);
-assert.equal(durationBridge.transitionNeedPoints[1].remainingDurationMonths, 12);
+assert.equal(durationBridge.assumptionsUsed.legacyModeQuarantined, true);
+assert.equal(durationBridge.assumptionsUsed.unsupportedLegacyMode, "legacyDurationBridge");
+assert.equal(durationBridge.transitionNeedPoints[1].remainingDurationMonths, null);
+assert.ok(issueCodes(durationBridge.warnings).includes("transition-needs-legacy-burn-down-mode-quarantined"));
 
 const durationFromYears = runProjection(helper, {
   transitionNeedAmount: 36000,
   transitionDurationYears: 3,
   projectionYears: 4
 });
-assert.equal(durationFromYears.projectionMode, "durationBridge");
-assert.equal(durationFromYears.transitionNeedPoints[1].transitionNeedAmount, 24000);
-assert.equal(durationFromYears.transitionNeedPoints[3].transitionNeedAmount, 0);
-assert.equal(durationFromYears.assumptionsUsed.transitionModeSource, "duration-facts");
+assert.equal(durationFromYears.projectionMode, "deathTriggeredAtEachProjectionPoint");
+assert.equal(durationFromYears.transitionNeedPoints[1].transitionNeedAmount, 36000);
+assert.equal(durationFromYears.transitionNeedPoints[3].transitionNeedAmount, 36000);
+assert.equal(durationFromYears.assumptionsUsed.transitionModeSource, "coverage-strategy-default");
 
-const flatFallback = runProjection(helper, {
+const flatAlias = runProjection(helper, {
   transitionNeedAmount: 8000,
+  transitionMode: "flatFallback",
   projectionYears: 3
 });
-assert.equal(flatFallback.status, "complete");
-assert.equal(flatFallback.projectionMode, "flatFallback");
-assert.equal(flatFallback.transitionNeedPoints[0].transitionNeedAmount, 8000);
-assert.equal(flatFallback.transitionNeedPoints[3].transitionNeedAmount, 8000);
-assert.equal(flatFallback.assumptionsUsed.currentBehaviorPreservedByFallback, true);
-assert.ok(issueCodes(flatFallback.warnings).includes("transition-needs-duration-unavailable-flat-fallback"));
+assert.equal(flatAlias.status, "complete");
+assert.equal(flatAlias.projectionMode, "deathTriggeredAtEachProjectionPoint");
+assert.equal(flatAlias.transitionNeedPoints[0].transitionNeedAmount, 8000);
+assert.equal(flatAlias.transitionNeedPoints[3].transitionNeedAmount, 8000);
+assert.equal(flatAlias.assumptionsUsed.currentBehaviorPreservedByFallback, true);
+assert.equal(issueCodes(flatAlias.warnings).length, 0);
 
 const unavailable = runProjection(helper, {
   transitionNeedAmount: null,
@@ -203,9 +227,11 @@ const flatNeedLine = buildNeedLine(flatNeedLineInput);
 assert.equal(JSON.stringify(flatNeedLineInput), flatNeedLineInputBefore);
 assert.equal(flatNeedLine.needPoints[0].componentAmounts.transitionNeeds, 15000);
 assert.equal(flatNeedLine.needPoints[3].componentAmounts.transitionNeeds, 15000);
-assert.equal(flatNeedLine.needPoints[0].trace.transitionNeedsProjection.projectionMode, "flatFallback");
-assert.equal(flatNeedLine.componentModels.transitionNeeds.lifetimeProjection.projectionMode, "flatFallback");
-assert.ok(issueCodes(flatNeedLine.warnings).includes("transition-needs-duration-unavailable-flat-fallback"));
+assert.equal(flatNeedLine.needPoints[0].trace.transitionNeedsProjection.projectionMode, "deathTriggeredAtEachProjectionPoint");
+assert.equal(flatNeedLine.componentModels.transitionNeeds.lifetimeProjection.projectionMode, "deathTriggeredAtEachProjectionPoint");
+assert.equal(issueCodes(flatNeedLine.warnings).filter(function (code) {
+  return code.indexOf("transition-needs") === 0;
+}).length, 0);
 
 const durationNeedLine = buildNeedLine({
   lensModel: {
@@ -221,15 +247,17 @@ const durationNeedLine = buildNeedLine({
   }
 });
 assert.equal(durationNeedLine.needPoints[0].componentAmounts.transitionNeeds, 24000);
-assert.equal(durationNeedLine.needPoints[1].componentAmounts.transitionNeeds, 12000);
-assert.equal(durationNeedLine.needPoints[2].componentAmounts.transitionNeeds, 0);
-assert.equal(durationNeedLine.needPoints[3].componentAmounts.transitionNeeds, 0);
-assert.equal(durationNeedLine.needPoints[0].trace.transitionNeedsProjection.projectionMode, "durationBridge");
-assert.equal(durationNeedLine.componentModels.transitionNeeds.lifetimeProjection.projectionMode, "durationBridge");
+assert.equal(durationNeedLine.needPoints[1].componentAmounts.transitionNeeds, 24000);
+assert.equal(durationNeedLine.needPoints[2].componentAmounts.transitionNeeds, 24000);
+assert.equal(durationNeedLine.needPoints[3].componentAmounts.transitionNeeds, 24000);
+assert.equal(durationNeedLine.needPoints[0].trace.transitionNeedsProjection.projectionMode, "deathTriggeredAtEachProjectionPoint");
+assert.equal(durationNeedLine.componentModels.transitionNeeds.lifetimeProjection.projectionMode, "deathTriggeredAtEachProjectionPoint");
 assert.equal(
   durationNeedLine.componentModels.transitionNeeds.lifetimeProjection.assumptionsUsed.durationMonths,
   24
 );
+assert.equal(durationNeedLine.componentModels.transitionNeeds.lifetimeProjection.assumptionsUsed.legacyModeQuarantined, true);
+assert.ok(issueCodes(durationNeedLine.warnings).includes("transition-needs-legacy-burn-down-mode-quarantined"));
 
 const deathYearNeedLine = buildNeedLine({
   lensModel: {
@@ -244,8 +272,8 @@ const deathYearNeedLine = buildNeedLine({
   }
 });
 assert.equal(deathYearNeedLine.needPoints[0].componentAmounts.transitionNeeds, 25000);
-assert.equal(deathYearNeedLine.needPoints[1].componentAmounts.transitionNeeds, 0);
-assert.equal(deathYearNeedLine.needPoints[0].trace.transitionNeedsProjection.projectionMode, "deathYearOnly");
+assert.equal(deathYearNeedLine.needPoints[1].componentAmounts.transitionNeeds, 25000);
+assert.equal(deathYearNeedLine.needPoints[0].trace.transitionNeedsProjection.projectionMode, "deathTriggeredAtEachProjectionPoint");
 
 const diagnosticContext = createContext();
 loadScript(diagnosticContext, "app/features/lens-analysis/coverage-strategy-diagnostic-export.js");
@@ -256,14 +284,15 @@ const snapshot = diagnosticContext.LensApp.lensAnalysis.buildCoverageStrategyDia
 assert.ok(snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection);
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.projectionMode,
-  "durationBridge"
+  "deathTriggeredAtEachProjectionPoint"
 );
 assert.equal(
   snapshot.coverageStrategyGeneratedOutputs.transitionNeedsLifetimeProjection.transitionNeedPoints[1].transitionNeedAmount,
-  12000
+  24000
 );
 const html = diagnosticContext.LensApp.lensAnalysis.renderCoverageStrategyDiagnosticExportHtml(snapshot);
 assert.match(html, /transitionNeedsLifetimeProjection/);
-assert.match(html, /durationBridge/);
+assert.match(html, /deathTriggeredAtEachProjectionPoint/);
+assert.match(html, /transition-needs-legacy-burn-down-mode-quarantined/);
 
 console.log("coverage-strategy-transition-needs-lifetime-projection-check passed");
