@@ -74,7 +74,7 @@
     expenses: Object.freeze({
       scope: DEFAULT_RECORD_SCOPE,
       heading: "Additional Expenses",
-      copy: "\"Continues after death?\" is saved for future support-treatment review. Review overlap with starter expense rows to avoid duplicate entry.",
+      copy: "",
       addButtonLabel: "Add Expense",
       modalTitle: "Add Expense",
       modalTitleId: "pmi-expense-library-title",

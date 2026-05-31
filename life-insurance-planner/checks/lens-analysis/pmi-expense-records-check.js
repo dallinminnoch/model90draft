@@ -389,7 +389,7 @@ assert.match(widgetSource, /non-healthcare rows remain raw-only for current outp
 assert.match(widgetSource, /continuationStatus is future support-treatment metadata/);
 assert.match(widgetSource, /Healthcare bucket rows remain saved as healthcare-sensitive facts/);
 assert.match(widgetSource, /non-healthcare rows remain saved raw facts unless another LENS component explicitly owns them/);
-assert.match(widgetSource, /Review overlap with starter expense rows to avoid duplicate entry/);
+assert.doesNotMatch(widgetSource, /Review overlap with starter expense rows to avoid duplicate entry/);
 assert.doesNotMatch(widgetSource, /Use this for expenses not already captured in Household Spending/, "Additional Expenses widget should not render the deleted helper paragraph");
 assert.doesNotMatch(widgetSource, /collect repeatable raw-only expenseRecords\[\] rows from PMI/);
 assert.doesNotMatch(widgetSource, /Search or browse initial expense types to add as raw PMI facts/);
@@ -658,7 +658,7 @@ assert.match(fakeDom.root.innerHTML, /Additional Expenses/, "widget should rende
 assert.doesNotMatch(fakeDom.root.innerHTML, /Use this for expenses not already captured in Household Spending/, "widget should not render the deleted Additional Expenses helper paragraph");
 assert.doesNotMatch(fakeDom.root.innerHTML, /Healthcare bucket rows are included in LENS healthcare expenses automatically/, "widget should not render the deleted healthcare behavior helper paragraph");
 assert.doesNotMatch(fakeDom.root.innerHTML, /Non-healthcare rows remain raw facts unless another LENS component explicitly owns them/, "widget should not render the deleted non-healthcare raw-fact helper paragraph");
-assert.match(fakeDom.root.innerHTML, /Continues after death\?&quot; is saved for future support-treatment review/, "widget should describe continuationStatus as future support-treatment metadata");
+assert.doesNotMatch(fakeDom.root.innerHTML, /Continues after death\?&quot; is saved for future support-treatment review/, "widget should not render the deleted continuationStatus helper text");
 assert.equal(controller.records.length, 9, "missing expenseRecords should create starter rows by default");
 assert.deepEqual(
   Array.from(controller.records, (record) => record.typeKey),
