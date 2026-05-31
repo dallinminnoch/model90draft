@@ -83,7 +83,33 @@ assert.match(pageSource, /data-workspace-side-nav="lens"/, "Canonical PMI page s
 assert.doesNotMatch(pageSource, /class="prospect-return-button"[\s\S]*>Previous</, "PMI form header should not keep the old Previous button.");
 assert.doesNotMatch(pageSource, /<h1>Protection Modeling Inputs<\/h1>/, "PMI form header should not keep the old page title.");
 assert.match(pageSource, /data-pmi-file-header/);
-assert.match(pageSource, /Household Income &amp; Tax Profile/);
+[
+  ["pmi-income", "01 · Income Calculation", "Household Income &amp; Tax Profile"],
+  ["pmi-housing", "02 · Housing", "Housing Costs"],
+  ["pmi-debts", "03 · Debts", "Debts and Liabilities"],
+  ["pmi-expenses", "04 · Expenses", "Expenses and Lifestyle"],
+  ["pmi-savings-habits", "05 · Savings Habits", "Savings, Reserves &amp; Investment Habits"],
+  ["pmi-assets", "06 · Assets", "Assets and Offset Planning"],
+  ["pmi-coverage", "07 · Existing Coverage", "Existing Coverage"],
+  ["pmi-survivor", "08 · Survivor Needs", "Survivor Transition Needs"],
+  ["pmi-education", "09 · Education", "Education Funding"],
+  ["pmi-final", "10 · Final Expenses", "Final Expenses"]
+].forEach(([sectionId, eyebrow, title]) => {
+  const sectionStart = pageSource.indexOf(`id="${sectionId}"`);
+  assert.ok(sectionStart !== -1, `${sectionId} should exist.`);
+  const nextSectionStart = pageSource.indexOf('<section class="profile-form-section"', sectionStart + 1);
+  const sectionSource = pageSource.slice(sectionStart, nextSectionStart === -1 ? pageSource.length : nextSectionStart);
+  assert.match(
+    sectionSource,
+    new RegExp(`<span class="pmi-reference-card-num">${eyebrow.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}<\\/span>`),
+    `${sectionId} should render the correct numbered PMI section eyebrow.`
+  );
+  assert.match(
+    sectionSource,
+    new RegExp(`<h2>${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}<\\/h2>`),
+    `${sectionId} should keep the correct section title.`
+  );
+});
 assert.match(pageSource, /Gross income, filing status, deductions, and net take-home/);
 assert.match(pageSource, /data-pmi-linked-person-name/);
 assert.match(pageSource, /data-pmi-linked-case-ref/);
@@ -119,6 +145,8 @@ assert.match(
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="date-of-birth"\]\s*{[\s\S]*justify-content:\s*flex-end;/, "Date of birth should align to the right edge of the banner.");
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="case-ref"\],[\s\S]*\.pmi-file-field\[data-pmi-file-field="household"\]\s*{[\s\S]*justify-content:\s*center;/, "Case ref and household should be spaced through the middle of the banner.");
 assert.match(layoutCss, /body\[data-page="next-step"\] \.pmi-form-main \.profile-creation-form\s*{[\s\S]*display:\s*grid;[\s\S]*gap:\s*16px;/, "PMI card stack should use layout-owned grid gaps between section cards.");
+assert.match(layoutCss, /body\[data-page="next-step"\] \.pmi-form-main \.profile-form-section-heading\s*{[\s\S]*flex-direction:\s*column;[\s\S]*padding:\s*28px 44px 30px;/, "PMI section headings should use the reference stacked header treatment.");
+assert.doesNotMatch(layoutCss, /content:\s*"01 \\00B7  Income Calculation"/, "PMI section eyebrow text should come from each section, not a hardcoded pseudo-element.");
 
 [
   ".pmi-form-layout",
