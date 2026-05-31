@@ -2,6 +2,7 @@
   const LensApp = window.LensApp || (window.LensApp = {});
   const INCOME_LOSS_IMPACT_ROUTE = "income-loss-impact.html";
   const ASSUMPTIONS_EMBED_MESSAGE_TYPE = "model90:analysis-setup:assumptions-embed-closed";
+  const EXPENSE_INFLATION_ACCOUNT_DEFAULTS_ACCOUNT_ID = "temporary-local-household-expense-policy-account-v1";
 
   const RATE_FIELDS = [
     "generalInflationRatePercent",
@@ -9,6 +10,17 @@
     "educationInflationRatePercent",
     "healthcareInflationRatePercent",
     "longTermCareInflationRatePercent",
+    "housingOperatingInflationRatePercent",
+    "childcareDependentCareInflationRatePercent",
+    "foodInflationRatePercent",
+    "transportationOperatingInflationRatePercent",
+    "finalExpenseInflationRatePercent"
+  ];
+  const ACCOUNT_EXPENSE_INFLATION_RATE_FIELDS = [
+    "generalInflationRatePercent",
+    "healthcareInflationRatePercent",
+    "longTermCareInflationRatePercent",
+    "educationInflationRatePercent",
     "housingOperatingInflationRatePercent",
     "childcareDependentCareInflationRatePercent",
     "foodInflationRatePercent",
@@ -2436,10 +2448,141 @@
     return {};
   }
 
-  function getInflationAssumptions(record) {
+  function getExpenseInflationAccountDefaultsStorageApi(options) {
+    return options?.expenseInflationAccountDefaultsStorageApi
+      || LensApp.accountSettings?.expenseInflationAccountDefaultsStorage
+      || null;
+  }
+
+  function getExpenseInflationAccountDefaultsResolverApi(options) {
+    return options?.expenseInflationAccountDefaultsResolverApi
+      || LensApp.accountSettings?.expenseInflationAccountDefaultsResolver
+      || null;
+  }
+
+  function getExpenseInflationAccountDefaultsStorage(options) {
+    if (options && Object.prototype.hasOwnProperty.call(options, "storage")) {
+      return options.storage;
+    }
+
+    return window.localStorage;
+  }
+
+  function loadAnalysisSetupExpenseInflationAccountDefaults(options) {
+    if (isPlainObject(options?.accountDefaults)) {
+      return {
+        accountDefaults: options.accountDefaults,
+        loadResult: {
+          status: "provided"
+        }
+      };
+    }
+
+    const storageApi = getExpenseInflationAccountDefaultsStorageApi(options);
+    if (!storageApi || typeof storageApi.loadExpenseInflationAccountDefaults !== "function") {
+      return {
+        accountDefaults: null,
+        loadResult: {
+          status: "unavailable",
+          warnings: [{
+            code: "expense-inflation-account-defaults-storage-unavailable",
+            message: "Expense inflation account defaults storage is unavailable.",
+            details: {}
+          }]
+        }
+      };
+    }
+
+    try {
+      const loadResult = storageApi.loadExpenseInflationAccountDefaults({
+        accountId: options?.accountId || EXPENSE_INFLATION_ACCOUNT_DEFAULTS_ACCOUNT_ID,
+        storage: getExpenseInflationAccountDefaultsStorage(options)
+      });
+      const loadedDefaults = loadResult?.status === "loaded"
+        && isPlainObject(loadResult?.accountDefaults?.expenseInflationDefaults)
+        ? loadResult.accountDefaults.expenseInflationDefaults
+        : null;
+
+      return {
+        accountDefaults: loadedDefaults,
+        loadResult
+      };
+    } catch (error) {
+      return {
+        accountDefaults: null,
+        loadResult: {
+          status: "error",
+          warnings: [{
+            code: "expense-inflation-account-defaults-load-failed",
+            message: "Expense inflation account defaults could not be loaded.",
+            details: {
+              errorMessage: error && error.message ? error.message : String(error)
+            }
+          }]
+        }
+      };
+    }
+  }
+
+  function resolveAnalysisSetupExpenseInflationDefaults(saved, options) {
+    const resolverApi = getExpenseInflationAccountDefaultsResolverApi(options);
+    const accountDefaultsResult = loadAnalysisSetupExpenseInflationAccountDefaults(options);
+    const storageWarnings = Array.isArray(accountDefaultsResult.loadResult?.warnings)
+      ? accountDefaultsResult.loadResult.warnings
+      : [];
+    const storageDataGaps = Array.isArray(accountDefaultsResult.loadResult?.dataGaps)
+      ? accountDefaultsResult.loadResult.dataGaps
+      : [];
+
+    if (!resolverApi || typeof resolverApi.resolveExpenseInflationDefaults !== "function") {
+      return {
+        resolvedDefaults: DEFAULT_INFLATION_ASSUMPTIONS,
+        fieldSources: ACCOUNT_EXPENSE_INFLATION_RATE_FIELDS.reduce(function (sources, fieldName) {
+          sources[fieldName] = "system-fallback";
+          return sources;
+        }, {}),
+        warnings: storageWarnings.concat([{
+          code: "expense-inflation-account-defaults-resolver-unavailable",
+          message: "Expense inflation account defaults resolver is unavailable.",
+          details: {}
+        }]),
+        dataGaps: storageDataGaps,
+        trace: {
+          calculationMethod: "analysis-setup-expense-inflation-default-seeding-v1",
+          accountId: options?.accountId || EXPENSE_INFLATION_ACCOUNT_DEFAULTS_ACCOUNT_ID,
+          accountDefaultsStatus: accountDefaultsResult.loadResult?.status || "unavailable",
+          resolverAvailable: false
+        }
+      };
+    }
+
+    const resolved = resolverApi.resolveExpenseInflationDefaults({
+      accountDefaults: accountDefaultsResult.accountDefaults,
+      analysisInflationAssumptions: isPlainObject(saved) ? saved : {},
+      systemDefaults: DEFAULT_INFLATION_ASSUMPTIONS
+    });
+
+    return {
+      ...resolved,
+      warnings: storageWarnings.concat(Array.isArray(resolved?.warnings) ? resolved.warnings : []),
+      dataGaps: storageDataGaps.concat(Array.isArray(resolved?.dataGaps) ? resolved.dataGaps : []),
+      trace: {
+        calculationMethod: "analysis-setup-expense-inflation-default-seeding-v1",
+        accountId: options?.accountId || EXPENSE_INFLATION_ACCOUNT_DEFAULTS_ACCOUNT_ID,
+        accountDefaultsStatus: accountDefaultsResult.loadResult?.status || "unavailable",
+        resolverTrace: resolved?.trace || null
+      }
+    };
+  }
+
+  function getInflationAssumptions(record, options) {
     const saved = isPlainObject(record?.analysisSettings?.inflationAssumptions)
       ? record.analysisSettings.inflationAssumptions
       : {};
+    const seedResult = resolveAnalysisSetupExpenseInflationDefaults(saved, options);
+    const seededDefaults = isPlainObject(seedResult.resolvedDefaults)
+      ? seedResult.resolvedDefaults
+      : DEFAULT_INFLATION_ASSUMPTIONS;
     const nextAssumptions = {
       ...DEFAULT_INFLATION_ASSUMPTIONS,
       enabled: typeof saved.enabled === "boolean"
@@ -2449,9 +2592,12 @@
     };
 
     RATE_FIELDS.forEach(function (fieldName) {
+      const defaultValue = ACCOUNT_EXPENSE_INFLATION_RATE_FIELDS.indexOf(fieldName) >= 0
+        ? seededDefaults[fieldName]
+        : DEFAULT_INFLATION_ASSUMPTIONS[fieldName];
       nextAssumptions[fieldName] = normalizeRateValue(
         saved[fieldName],
-        DEFAULT_INFLATION_ASSUMPTIONS[fieldName]
+        defaultValue
       );
     });
 
@@ -2463,6 +2609,13 @@
     if (saved.lastUpdatedAt) {
       nextAssumptions.lastUpdatedAt = String(saved.lastUpdatedAt);
     }
+
+    nextAssumptions.expenseInflationDefaultSeedTrace = {
+      fieldSources: seedResult.fieldSources || {},
+      warnings: seedResult.warnings || [],
+      dataGaps: seedResult.dataGaps || [],
+      trace: seedResult.trace || null
+    };
 
     return nextAssumptions;
   }
@@ -9129,7 +9282,7 @@
       markUnsaved();
     });
     fields.resetButton?.addEventListener("click", function () {
-      populateFields(fields, DEFAULT_INFLATION_ASSUMPTIONS, sliders);
+      populateFields(fields, getInflationAssumptions({ analysisSettings: { inflationAssumptions: {} } }), sliders);
       markUnsaved();
     });
 
@@ -9867,6 +10020,7 @@
     DEFAULT_RECOMMENDATION_GUARDRAILS,
     normalizeAnalysisDateOnlyValue,
     resolveAnalysisValuationDateForSave,
+    resolveAnalysisSetupExpenseInflationDefaults,
     getInflationAssumptions,
     getMethodDefaults,
     getProjectedAssetOffsetAssumptions,

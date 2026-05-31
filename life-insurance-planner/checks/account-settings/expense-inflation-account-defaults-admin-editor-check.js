@@ -241,8 +241,6 @@ assert.match(invalidSaveResult.error, /Food inflation must be a numeric percenta
 assert.equal(storage.getWrites().length, 0, "invalid input should not write storage");
 
 [
-  "pages/analysis-setup.html",
-  "app/features/lens-analysis/analysis-setup.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/coverage-strategy-need-line-adapter.js",
@@ -252,7 +250,7 @@ assert.equal(storage.getWrites().length, 0, "invalid input should not write stor
   assert.doesNotMatch(
     source,
     /expenseInflationAccountDefaults(?:AdminEditor|Resolver|Storage)|loadExpenseInflationAccountDefaults|resolveExpenseInflationDefaults/,
-    `${relativePath} should not consume account expense inflation defaults in this admin-editor-only pass.`
+    `${relativePath} should not consume account expense inflation defaults outside Analysis Setup seeding.`
   );
 });
 

@@ -178,8 +178,6 @@ assert.deepEqual(serializable(resolverModule.EXPENSE_INFLATION_RATE_FIELDS), [
 
 [
   "pages/admin-accounts.html",
-  "pages/analysis-setup.html",
-  "app/features/lens-analysis/analysis-setup.js",
   "app/features/lens-analysis/analysis-settings-adapter.js",
   "app/features/lens-analysis/analysis-methods.js",
   "app/features/lens-analysis/coverage-strategy-need-line-adapter.js",
@@ -192,7 +190,7 @@ assert.deepEqual(serializable(resolverModule.EXPENSE_INFLATION_RATE_FIELDS), [
   assert.doesNotMatch(
     source,
     /expenseInflationAccountDefaults(?:Resolver|Storage)|resolveExpenseInflationDefaults|loadExpenseInflationAccountDefaults|saveExpenseInflationAccountDefaults/,
-    `${relativePath} should not consume account expense inflation defaults in this storage/resolver-only pass.`
+    `${relativePath} should not consume account expense inflation defaults outside Analysis Setup seeding.`
   );
 });
 
