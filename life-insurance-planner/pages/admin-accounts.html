@@ -48,6 +48,12 @@
       <div id="admin-household-expense-policy-status" data-household-expense-account-policy-status></div>
     </section>
 
+    <section class="admin-accounts-panel" data-expense-inflation-account-defaults-panel>
+      <div
+        id="admin-expense-inflation-defaults-editor"
+        data-expense-inflation-account-defaults-editor></div>
+    </section>
+
     <section class="admin-accounts-panel">
       <div class="admin-panel-header">
         <div class="section-label">Planning Configuration</div>
@@ -152,6 +158,8 @@
   <script src="../app/features/client-intake.js"></script>
   <script src="../app/features/client-directory.js"></script>
   <script src="../app/features/account-settings/household-expense-account-policy-storage.js"></script>
+  <script src="../app/features/account-settings/expense-inflation-account-defaults-storage.js"></script>
+  <script src="../app/features/account-settings/expense-inflation-account-defaults-resolver.js"></script>
   <script src="../app/features/account-settings/usda-food-plan-import-contract.js"></script>
   <script src="../app/features/lens-analysis/expense-taxonomy.js"></script>
   <script src="../app/features/lens-analysis/expense-library.js"></script>
@@ -165,6 +173,7 @@
   <script src="../app.js"></script>
   <script src="../app/features/account-settings/household-expense-account-policy-admin-display.js"></script>
   <script src="../app/features/account-settings/household-expense-account-policy-admin-editor.js"></script>
+  <script src="../app/features/account-settings/expense-inflation-account-defaults-admin-editor.js"></script>
   <script>
     (function () {
       const federalStorageKey = "lensFederalTaxBrackets";
