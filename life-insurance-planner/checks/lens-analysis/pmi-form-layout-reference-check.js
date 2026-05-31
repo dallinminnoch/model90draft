@@ -145,7 +145,7 @@ assert.match(
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="date-of-birth"\]\s*{[\s\S]*justify-content:\s*flex-end;/, "Date of birth should align to the right edge of the banner.");
 assert.match(componentsCss, /\.pmi-file-field\[data-pmi-file-field="case-ref"\],[\s\S]*\.pmi-file-field\[data-pmi-file-field="household"\]\s*{[\s\S]*justify-content:\s*center;/, "Case ref and household should be spaced through the middle of the banner.");
 assert.match(layoutCss, /body\[data-page="next-step"\] \.pmi-form-main \.profile-creation-form\s*{[\s\S]*display:\s*grid;[\s\S]*gap:\s*16px;/, "PMI card stack should use layout-owned grid gaps between section cards.");
-assert.match(layoutCss, /body\[data-page="next-step"\] \.pmi-form-main \.profile-form-section-heading\s*{[\s\S]*flex-direction:\s*column;[\s\S]*padding:\s*28px 44px 30px;/, "PMI section headings should use the reference stacked header treatment.");
+assert.match(layoutCss, /body\[data-page="next-step"\] \.pmi-form-main \.profile-form-section-heading\s*{[\s\S]*flex-direction:\s*column;[\s\S]*padding:\s*16px 22px 14px;/, "PMI section headings should keep the original compact card scale.");
 assert.doesNotMatch(layoutCss, /content:\s*"01 \\00B7  Income Calculation"/, "PMI section eyebrow text should come from each section, not a hardcoded pseudo-element.");
 
 [
