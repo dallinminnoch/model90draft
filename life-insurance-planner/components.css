@@ -2967,6 +2967,39 @@ body[data-page="next-step"] .pmi-form-main .profile-form-section-group-stack {
   background: var(--m90-surface);
 }
 
+.profile-creation-form .pmi-section-attestation {
+  background: var(--m90-surface);
+}
+
+.profile-creation-form .pmi-section-attestation legend {
+  color: var(--m90-text-secondary);
+  font-family: "Inter", sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.profile-creation-form .pmi-section-attestation-option {
+  border: 1px solid var(--m90-border);
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-secondary);
+  font-family: "Inter", sans-serif;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.profile-creation-form .pmi-section-attestation-option:hover,
+.profile-creation-form .pmi-section-attestation-option:focus-within {
+  border-color: var(--m90-focus-ring);
+  color: var(--m90-accent);
+}
+
+.profile-creation-form .pmi-section-attestation-option:has(input:checked) {
+  border-color: var(--m90-focus-ring);
+  background: var(--m90-accent-soft);
+  color: var(--m90-accent);
+}
+
 body[data-page="next-step"] .pmi-form-main .field-group > label,
 body[data-page="next-step"] .pmi-form-main label:not(.settings-toggle-row):not(.analysis-setup-rate-label) {
   color: var(--m90-text-secondary);
