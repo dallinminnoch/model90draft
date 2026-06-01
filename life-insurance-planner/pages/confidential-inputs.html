@@ -300,7 +300,10 @@
                 <div class="profile-form-section-heading">
                   <h2>Housing Costs</h2>
                 </div>
-                <div class="form-grid">
+                <div class="form-grid pmi-housing-records-mount-grid">
+                  <div class="field-group full-width" data-pmi-housing-records-root></div>
+                </div>
+                <div class="form-grid pmi-scalar-housing-fields" data-pmi-scalar-housing-fields hidden aria-hidden="true">
               <div class="field-group">
                 <label for="housing-status">Housing Status</label>
                 <select id="housing-status" name="housingStatus">
@@ -1011,6 +1014,7 @@
   <script src="../app/features/lens-analysis/expense-library.js"></script>
   <script src="../app/features/lens-analysis/savings-contribution-facts.js"></script>
   <script src="../app/features/lens-analysis/pmi-expense-records.js"></script>
+  <script src="../app/features/lens-analysis/pmi-housing-records.js"></script>
   <script src="../app/features/lens-analysis/block-outputs.js"></script>
   <script src="../app/features/lens-analysis/helpers/housing-support-calculations.js"></script>
   <script src="../app/features/lens-analysis/blocks/existing-coverage.js"></script>
@@ -1651,6 +1655,9 @@
         root: form.querySelector("[data-pmi-expense-records-root]"),
         cashFlowRoot: form.querySelector("[data-pmi-expense-cashflow-root]"),
         pageRoot: form
+      });
+      const pmiHousingRecordsController = window.LensApp?.lensAnalysis?.pmiHousingRecords?.initPmiHousingRecords({
+        root: form.querySelector("[data-pmi-housing-records-root]")
       });
       function refreshPmiExpenseCashFlowBar() {
         if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.updateCashFlowReadout === "function") {
@@ -4267,6 +4274,9 @@
           if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.hydrateExpenseRecords === "function") {
             pmiExpenseRecordsController.hydrateExpenseRecords(saved.expenseRecords);
           }
+          if (pmiHousingRecordsController && typeof pmiHousingRecordsController.hydrateHousingRecords === "function") {
+            pmiHousingRecordsController.hydrateHousingRecords(saved.housingRecords);
+          }
           if (mortgageTermRemainingYearsField && !(mortgageTermRemainingYearsField instanceof RadioNodeList) && mortgageTermRemainingMonthsField && !(mortgageTermRemainingMonthsField instanceof RadioNodeList)) {
             const combinedTerm = parseCurrencyLikeNumber(saved.mortgageTermRemaining);
             if (combinedTerm && !saved.mortgageTermRemainingYears && !saved.mortgageTermRemainingMonths) {
@@ -4437,6 +4447,9 @@
         }
         if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.serializeExpenseRecords === "function") {
           draft.expenseRecords = pmiExpenseRecordsController.serializeExpenseRecords();
+        }
+        if (pmiHousingRecordsController && typeof pmiHousingRecordsController.serializeHousingRecords === "function") {
+          draft.housingRecords = pmiHousingRecordsController.serializeHousingRecords();
         }
 
         preserveLegacyAssetValueAliases(draft);

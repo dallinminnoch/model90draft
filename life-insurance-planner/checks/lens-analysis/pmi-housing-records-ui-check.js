@@ -1,0 +1,139 @@
+const fs = require("fs");
+const path = require("path");
+
+const repoRoot = path.resolve(__dirname, "../..");
+const modulePath = path.join(repoRoot, "app/features/lens-analysis/pmi-housing-records.js");
+const nextStepPath = path.join(repoRoot, "pages/next-step.html");
+const confidentialInputsPath = path.join(repoRoot, "pages/confidential-inputs.html");
+const componentsPath = path.join(repoRoot, "components.css");
+
+function readFile(relativeOrAbsolutePath) {
+  return fs.readFileSync(relativeOrAbsolutePath, "utf8");
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function walkJsFiles(directoryPath) {
+  return fs.readdirSync(directoryPath, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directoryPath, entry.name);
+    if (entry.isDirectory()) {
+      return walkJsFiles(entryPath);
+    }
+
+    return entry.isFile() && entry.name.endsWith(".js") ? [entryPath] : [];
+  });
+}
+
+const moduleSource = readFile(modulePath);
+const nextStepSource = readFile(nextStepPath);
+const confidentialInputsSource = readFile(confidentialInputsPath);
+const componentsSource = readFile(componentsPath);
+const pageSources = [
+  { name: "next-step.html", source: nextStepSource },
+  { name: "confidential-inputs.html", source: confidentialInputsSource }
+];
+
+const requiredTypeKeys = [
+  "primaryResidenceMortgage",
+  "primaryResidenceRent",
+  "primaryResidenceOwnedFreeAndClear",
+  "secondMortgageHeloc",
+  "secondHomeVacationProperty",
+  "rentalInvestmentProperty",
+  "temporaryHousing",
+  "housingOperatingCostOnly",
+  "otherHousingObligation"
+];
+
+const requiredFieldKeys = [
+  "propertyValue",
+  "currentBalance",
+  "monthlyPayment",
+  "interestRatePercent",
+  "remainingTermMonths",
+  "propertyTaxMonthly",
+  "homeownersInsuranceMonthly",
+  "hoaMonthly",
+  "maintenanceMonthly",
+  "utilitiesMonthly",
+  "escrowStatus",
+  "rentMonthly",
+  "leaseTermMonths",
+  "otherHousingCostMonthly",
+  "rentersInsuranceMonthly",
+  "equityAmount",
+  "debtSubType",
+  "rateType",
+  "paymentType",
+  "creditLimit",
+  "drawPeriodEndDate",
+  "interestOnlyDuringDrawPeriod",
+  "repaymentPeriodMonths",
+  "lienPosition",
+  "linkedPropertyLabel",
+  "grossMonthlyRentReceived",
+  "monthlyCost",
+  "expectedDurationMonths",
+  "reasonLabel",
+  "notes",
+  "reviewStatus"
+];
+
+pageSources.forEach(({ name, source }) => {
+  assert(source.includes("data-pmi-housing-records-root"), `${name} does not mount the Housing Records root.`);
+  assert(source.includes("pmi-housing-records.js"), `${name} does not load the Housing Records module.`);
+  assert(
+    /class="form-grid pmi-scalar-housing-fields" data-pmi-scalar-housing-fields hidden aria-hidden="true"/.test(source),
+    `${name} does not hide the old scalar housing workflow.`
+  );
+  assert(source.includes("initPmiHousingRecords"), `${name} does not initialize the Housing Records controller.`);
+  assert(source.includes("hydrateHousingRecords(saved.housingRecords)"), `${name} does not hydrate housingRecords[].`);
+  assert(source.includes("draft.housingRecords = pmiHousingRecordsController.serializeHousingRecords()"), `${name} does not save housingRecords[].`);
+});
+
+assert(moduleSource.includes("data-pmi-housing-record-add"), "Housing Records add control is missing.");
+assert(moduleSource.includes("data-pmi-housing-record-remove"), "Housing Records remove control is missing.");
+assert(moduleSource.includes("data-pmi-housing-record-input"), "Housing Records editable fields are missing.");
+assert(moduleSource.includes("FIELD_GROUPS_BY_TYPE"), "Housing Records type-specific field map is missing.");
+assert(moduleSource.includes("showForDebtSubType"), "HELOC-only field visibility metadata is missing.");
+assert(moduleSource.includes('showForDebtSubType: "heloc"'), "HELOC-only fields are not guarded by debt subtype.");
+assert(moduleSource.includes("shouldShowField"), "Housing Records field visibility helper is missing.");
+assert(moduleSource.includes("serializeHousingRecords"), "Housing Records serialize API is missing.");
+assert(moduleSource.includes("hydrateHousingRecords"), "Housing Records hydrate API is missing.");
+assert(moduleSource.includes("Non-goals: no normalization"), "Housing Records module does not document calculation-neutral ownership.");
+
+requiredTypeKeys.forEach((typeKey) => {
+  assert(moduleSource.includes(typeKey), `Housing record type ${typeKey} is missing.`);
+});
+
+requiredFieldKeys.forEach((fieldKey) => {
+  assert(moduleSource.includes(fieldKey), `Housing record field ${fieldKey} is missing.`);
+});
+
+assert(componentsSource.includes(".pmi-housing-records-shell"), "Housing Records component shell CSS is missing.");
+assert(componentsSource.includes(".pmi-housing-record-card"), "Housing Records card CSS is missing.");
+assert(
+  componentsSource.includes("[data-pmi-scalar-housing-fields][hidden]"),
+  "Hidden scalar housing fields need an explicit display guard against .form-grid."
+);
+
+const calculationFilesWithHousingRecords = walkJsFiles(path.join(repoRoot, "app/features/lens-analysis"))
+  .filter((filePath) => path.basename(filePath) !== "pmi-housing-records.js")
+  .filter((filePath) => readFile(filePath).includes("housingRecords"))
+  .map((filePath) => path.relative(repoRoot, filePath));
+
+assert(
+  calculationFilesWithHousingRecords.length === 0,
+  `housingRecords is referenced outside the UI module: ${calculationFilesWithHousingRecords.join(", ")}`
+);
+
+const forbiddenScalarSyncPattern = /housingRecords[\s\S]{0,240}(housingStatus|monthlyHousingCost|mortgageBalance|calculatedMonthlyMortgagePayment|monthlyMortgagePaymentOnly|associatedMonthlyCosts)/;
+pageSources.forEach(({ name, source }) => {
+  assert(!forbiddenScalarSyncPattern.test(source), `${name} appears to sync housingRecords into scalar calculation fields.`);
+});
+
+console.log("PMI housing records UI check passed.");

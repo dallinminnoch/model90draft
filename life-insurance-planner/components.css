@@ -2318,6 +2318,171 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   overflow-x: visible;
 }
 
+.pmi-housing-records-mount-grid {
+  margin-bottom: 0.25rem;
+}
+
+[data-pmi-scalar-housing-fields][hidden] {
+  display: none !important;
+}
+
+.pmi-housing-records-shell {
+  display: grid;
+  width: 100%;
+  gap: 0.75rem;
+}
+
+.pmi-housing-records-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pmi-housing-records-toolbar h3 {
+  margin: 0.08rem 0 0;
+  color: var(--m90-text-primary);
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.pmi-housing-records-kicker,
+.pmi-housing-record-index {
+  display: block;
+  color: var(--m90-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.pmi-housing-records-add-button,
+.pmi-housing-record-remove {
+  min-height: 2rem;
+  border: 1px solid var(--m90-border-soft);
+  border-radius: 0.42rem;
+  background: var(--m90-surface);
+  color: var(--m90-text-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pmi-housing-records-add-button {
+  border-color: var(--m90-accent);
+  background: var(--m90-accent);
+  color: #ffffff;
+}
+
+.pmi-housing-records-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pmi-housing-records-empty {
+  margin: 0;
+  padding: 0.85rem;
+  border: 1px dashed var(--m90-border-soft);
+  border-radius: 0.48rem;
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-secondary);
+  font-size: 0.86rem;
+}
+
+.pmi-housing-record-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--m90-border-soft);
+  border-radius: 0.48rem;
+  background: var(--m90-surface);
+  box-shadow: none;
+}
+
+.pmi-housing-record-card-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.pmi-housing-record-card-header h3 {
+  margin: 0.08rem 0 0;
+  color: var(--m90-text-primary);
+  font-size: 0.95rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.pmi-housing-record-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  gap: 0.62rem;
+  min-width: 0;
+}
+
+.pmi-housing-record-field {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+  color: var(--m90-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.18;
+}
+
+.pmi-housing-record-field input,
+.pmi-housing-record-field select,
+.pmi-housing-record-field textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 1.95rem;
+  padding: 0.34rem 0.5rem;
+  border-color: var(--m90-border-soft);
+  border-radius: 0.34rem;
+  background: var(--m90-surface);
+  color: var(--m90-text-primary);
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.pmi-housing-record-field textarea {
+  resize: vertical;
+}
+
+.pmi-housing-record-input-shell {
+  overflow: hidden;
+  border: 1px solid var(--m90-border-soft);
+  border-radius: 0.34rem;
+  background: var(--m90-surface-secondary);
+}
+
+.pmi-housing-record-input-shell input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pmi-housing-record-input-shell .profile-currency-suffix {
+  right: 0.42rem;
+  color: var(--m90-text-muted);
+  font-size: 0.55rem;
+}
+
+.pmi-housing-record-field input:focus,
+.pmi-housing-record-field select:focus,
+.pmi-housing-record-field textarea:focus {
+  border-color: var(--m90-focus-ring);
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--m90-accent-soft);
+  background: var(--m90-surface);
+}
+
 .pmi-debt-records-table {
   width: 100%;
   min-width: 0;
