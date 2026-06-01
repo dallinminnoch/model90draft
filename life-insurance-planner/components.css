@@ -15081,7 +15081,7 @@ body.clients-page {
   --client-directory-premium-border: var(--m90-border-soft);
   --client-directory-premium-shadow: 0 0.62rem 1.25rem var(--m90-shadow);
   font-family: var(--client-directory-ui-font);
-  background: var(--m90-bg);
+  background: var(--m90-surface);
 }
 
 body.clients-page .client-directory-menu-column.workspace-side-nav-shell,
@@ -15094,13 +15094,11 @@ body.clients-page .client-directory-side-panel {
 }
 
 body.clients-page .client-directory-shell-layout {
-  background: linear-gradient(180deg, var(--m90-surface-secondary) 0%, var(--m90-surface-secondary) 100%);
+  background: var(--m90-surface);
 }
 
 body.clients-page .client-directory-main {
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--m90-accent) 4%, transparent), transparent 21rem),
-    linear-gradient(180deg, var(--m90-bg) 0%, var(--m90-surface-secondary) 100%);
+  background: var(--m90-surface);
 }
 
 body.clients-page .client-directory-menu-column.workspace-side-nav-shell {
