@@ -604,7 +604,7 @@ body[data-page="next-step"] .pmi-form-main #pmi-income .pmi-reference-notice {
   min-height: calc(100vh - 140px);
   background: var(--m90-surface);
   border: 1px solid var(--m90-border);
-  border-radius: 0;
+  border-radius: 0.65rem;
   box-shadow: var(--m90-shadow);
   overflow: hidden;
 }
@@ -639,7 +639,9 @@ body[data-page="next-step"] .pmi-form-main #pmi-income .pmi-reference-notice {
   background: var(--m90-surface);
   border-left: 1px solid var(--m90-border);
   border-top: 1px solid var(--m90-border);
+  border-right: 1px solid var(--m90-border);
   border-bottom: 1px solid var(--m90-border);
+  border-radius: 0 0.65rem 0.65rem 0;
   overflow: hidden;
 }
 
@@ -1749,7 +1751,7 @@ body[data-page="protection-modeling-linked"].lens-workflow-page .entry-page-view
     position: fixed;
     top: var(--workspace-topbar-height);
     left: var(--app-side-nav-screen-gap);
-    bottom: 0;
+    bottom: var(--app-side-nav-screen-gap);
     width: calc(var(--app-side-nav-collapsed-width) - var(--app-side-nav-screen-gap));
     z-index: 42;
     transition: width 0.22s ease;
@@ -2005,6 +2007,14 @@ body[data-page="protection-modeling-linked"].lens-workflow-page .entry-page-view
     height: 100%;
     min-height: 0;
     padding: 0.9rem clamp(0.35rem, 1vw, 0.75rem) 0;
+  }
+
+  body.clients-page .client-directory-shell-layout,
+  body.lens-page .prospect-stage,
+  body.settings-page .settings-shell {
+    padding-right: var(--app-side-nav-screen-gap);
+    padding-bottom: var(--app-side-nav-screen-gap);
+    box-sizing: border-box;
   }
 }
 
