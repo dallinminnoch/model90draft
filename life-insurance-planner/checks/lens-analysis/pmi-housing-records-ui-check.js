@@ -66,6 +66,14 @@ const requiredFieldKeys = [
   "otherHousingCostMonthly",
   "rentersInsuranceMonthly",
   "equityAmount",
+  "homeSquareFootage",
+  "homeAgeYears",
+  "monthlyMaintenanceRecommendation",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
+  "monthlyMortgagePaymentOnly",
+  "associatedMonthlyCosts",
+  "calculatedMonthlyMortgagePayment",
   "debtSubType",
   "rateType",
   "paymentType",
@@ -91,6 +99,7 @@ pageSources.forEach(({ name, source }) => {
     `${name} does not hide the old scalar housing workflow.`
   );
   assert(source.includes("initPmiHousingRecords"), `${name} does not initialize the Housing Records controller.`);
+  assert(source.includes("maintenanceRowsProvider: () => readStoredMaintenanceConfig()"), `${name} does not pass the legacy maintenance config provider.`);
   assert(source.includes("hydrateHousingRecords(saved.housingRecords)"), `${name} does not hydrate housingRecords[].`);
   assert(source.includes("draft.housingRecords = pmiHousingRecordsController.serializeHousingRecords()"), `${name} does not save housingRecords[].`);
 });
@@ -105,6 +114,12 @@ assert(moduleSource.includes("shouldShowField"), "Housing Records field visibili
 assert(moduleSource.includes("serializeHousingRecords"), "Housing Records serialize API is missing.");
 assert(moduleSource.includes("hydrateHousingRecords"), "Housing Records hydrate API is missing.");
 assert(moduleSource.includes("Non-goals: no normalization"), "Housing Records module does not document calculation-neutral ownership.");
+assert(moduleSource.includes("calculateHousingSupportInputs"), "Housing Records does not reuse the existing housing support helper.");
+assert(moduleSource.includes("mapRecordToHousingCalculationSource"), "Housing Records does not map record fields to legacy housing helper inputs.");
+assert(moduleSource.includes("updateCalculatedDisplaysForRow"), "Housing Records does not update calculated displays at the record level.");
+assert(moduleSource.includes("data-pmi-housing-record-calculated-action"), "Housing Records calculated fields do not expose edit/reset actions.");
+assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), "Maintenance manual override metadata is missing.");
+assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
 
 requiredTypeKeys.forEach((typeKey) => {
   assert(moduleSource.includes(typeKey), `Housing record type ${typeKey} is missing.`);
@@ -114,8 +129,95 @@ requiredFieldKeys.forEach((fieldKey) => {
   assert(moduleSource.includes(fieldKey), `Housing record field ${fieldKey} is missing.`);
 });
 
+function assertTypeIncludes(typeKey, fieldKeys) {
+  const groupPattern = new RegExp(`${typeKey}: Object\\.freeze\\(\\[([\\s\\S]*?)\\]\\)`);
+  const groupMatch = moduleSource.match(groupPattern);
+  assert(groupMatch, `Could not find field group for ${typeKey}.`);
+  fieldKeys.forEach((fieldKey) => {
+    assert(groupMatch[1].includes(`"${fieldKey}"`), `${typeKey} is missing ${fieldKey}.`);
+  });
+}
+
+function assertTypeExcludes(typeKey, fieldKeys) {
+  const groupPattern = new RegExp(`${typeKey}: Object\\.freeze\\(\\[([\\s\\S]*?)\\]\\)`);
+  const groupMatch = moduleSource.match(groupPattern);
+  assert(groupMatch, `Could not find field group for ${typeKey}.`);
+  fieldKeys.forEach((fieldKey) => {
+    assert(!groupMatch[1].includes(`"${fieldKey}"`), `${typeKey} should not include ${fieldKey}.`);
+  });
+}
+
+assertTypeIncludes("primaryResidenceMortgage", [
+  "currentBalance",
+  "interestRatePercent",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
+  "monthlyMortgagePaymentOnly",
+  "associatedMonthlyCosts",
+  "calculatedMonthlyMortgagePayment",
+  "homeSquareFootage",
+  "homeAgeYears",
+  "monthlyMaintenanceRecommendation"
+]);
+assertTypeIncludes("primaryResidenceRent", [
+  "rentMonthly",
+  "otherHousingCostMonthly",
+  "utilitiesMonthly",
+  "rentersInsuranceMonthly"
+]);
+assertTypeExcludes("primaryResidenceRent", [
+  "homeSquareFootage",
+  "homeAgeYears",
+  "monthlyMaintenanceRecommendation"
+]);
+assertTypeIncludes("primaryResidenceOwnedFreeAndClear", [
+  "equityAmount",
+  "propertyTaxMonthly",
+  "hoaMonthly",
+  "homeownersInsuranceMonthly",
+  "utilitiesMonthly",
+  "homeSquareFootage",
+  "homeAgeYears",
+  "monthlyMaintenanceRecommendation"
+]);
+["secondHomeVacationProperty", "rentalInvestmentProperty", "housingOperatingCostOnly"].forEach((typeKey) => {
+  assertTypeIncludes(typeKey, [
+    "homeSquareFootage",
+    "homeAgeYears",
+    "monthlyMaintenanceRecommendation"
+  ]);
+});
+
+[
+  "homeSquareFootage",
+  "homeAgeYears",
+  "monthlyMaintenanceRecommendation",
+  "housingStatus",
+  "monthlyHousingCost",
+  "otherMonthlyRenterHousingCosts",
+  "mortgageBalance",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
+  "mortgageInterestRate",
+  "propertyTax",
+  "monthlyHoaCost",
+  "housingInsuranceCost",
+  "utilitiesCost",
+  "primaryResidenceEquity",
+  "monthlyMortgagePaymentOnly",
+  "associatedMonthlyCosts",
+  "calculatedMonthlyMortgagePayment",
+  "mortgageTermRemaining"
+].forEach((fieldName) => {
+  assert(
+    nextStepSource.includes(`name="${fieldName}"`) || confidentialInputsSource.includes(`name="${fieldName}"`),
+    `Old scalar field ${fieldName} was not preserved in the PMI pages.`
+  );
+});
+
 assert(componentsSource.includes(".pmi-housing-records-shell"), "Housing Records component shell CSS is missing.");
 assert(componentsSource.includes(".pmi-housing-record-card"), "Housing Records card CSS is missing.");
+assert(componentsSource.includes(".pmi-housing-record-calculated-shell"), "Housing Records calculated display CSS is missing.");
 assert(
   componentsSource.includes("[data-pmi-scalar-housing-fields][hidden]"),
   "Hidden scalar housing fields need an explicit display guard against .form-grid."

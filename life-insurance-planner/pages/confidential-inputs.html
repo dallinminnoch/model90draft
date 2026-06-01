@@ -1657,7 +1657,8 @@
         pageRoot: form
       });
       const pmiHousingRecordsController = window.LensApp?.lensAnalysis?.pmiHousingRecords?.initPmiHousingRecords({
-        root: form.querySelector("[data-pmi-housing-records-root]")
+        root: form.querySelector("[data-pmi-housing-records-root]"),
+        maintenanceRowsProvider: () => readStoredMaintenanceConfig()
       });
       function refreshPmiExpenseCashFlowBar() {
         if (pmiExpenseRecordsController && typeof pmiExpenseRecordsController.updateCashFlowReadout === "function") {

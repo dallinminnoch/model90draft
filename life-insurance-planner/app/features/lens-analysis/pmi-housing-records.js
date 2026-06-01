@@ -36,6 +36,38 @@
     Object.freeze({ value: "no", label: "No" })
   ]);
 
+  const HOME_SQUARE_FOOTAGE_OPTIONS = Object.freeze([
+    Object.freeze({ value: "", label: "Sq Ft" }),
+    Object.freeze({ value: "Under 1,500 sq ft", label: "Under 1,500" }),
+    Object.freeze({ value: "1,500-2,499 sq ft", label: "1,500-2,499" }),
+    Object.freeze({ value: "2,500-3,499 sq ft", label: "2,500-3,499" }),
+    Object.freeze({ value: "3,500+ sq ft", label: "3,500+" })
+  ]);
+
+  const CALCULATED_HOUSING_FIELD_KEYS = Object.freeze([
+    "monthlyMaintenanceRecommendation",
+    "monthlyMortgagePaymentOnly",
+    "associatedMonthlyCosts",
+    "calculatedMonthlyMortgagePayment"
+  ]);
+
+  const CALCULATION_SOURCE_FIELD_KEYS = Object.freeze([
+    "typeKey",
+    "currentBalance",
+    "mortgageTermRemainingYears",
+    "mortgageTermRemainingMonths",
+    "interestRatePercent",
+    "rentMonthly",
+    "otherHousingCostMonthly",
+    "utilitiesMonthly",
+    "homeownersInsuranceMonthly",
+    "rentersInsuranceMonthly",
+    "propertyTaxMonthly",
+    "hoaMonthly",
+    "homeSquareFootage",
+    "homeAgeYears"
+  ]);
+
   const FIELD_DEFINITIONS = Object.freeze({
     label: Object.freeze({ label: "Record Label", type: "text", placeholder: "Housing record" }),
     typeKey: Object.freeze({ label: "Housing Type", type: "housingType" }),
@@ -47,10 +79,18 @@
     interestRatePercent: Object.freeze({ label: "Interest Rate", type: "number", step: "0.01", suffix: "%" }),
     remainingTermMonths: Object.freeze({ label: "Remaining Term", type: "number", step: "1", suffix: "Months" }),
     propertyTaxMonthly: Object.freeze({ label: "Property Tax", type: "number", step: "25", suffix: "USD" }),
-    homeownersInsuranceMonthly: Object.freeze({ label: "Homeowners Insurance", type: "number", step: "25", suffix: "USD" }),
+    homeownersInsuranceMonthly: Object.freeze({ label: "Housing Insurance", type: "number", step: "25", suffix: "USD" }),
     hoaMonthly: Object.freeze({ label: "HOA", type: "number", step: "25", suffix: "USD" }),
     maintenanceMonthly: Object.freeze({ label: "Maintenance", type: "number", step: "25", suffix: "USD" }),
     utilitiesMonthly: Object.freeze({ label: "Utilities", type: "number", step: "25", suffix: "USD" }),
+    homeSquareFootage: Object.freeze({ label: "Home Square Footage", type: "homeSquareFootage" }),
+    homeAgeYears: Object.freeze({ label: "Home Age", type: "text", inputMode: "numeric", placeholder: "Years" }),
+    monthlyMaintenanceRecommendation: Object.freeze({ label: "Recommended Maintenance / Repairs", type: "calculatedCurrency" }),
+    mortgageTermRemainingYears: Object.freeze({ label: "Remaining Term Years", type: "number", step: "1", suffix: "Years" }),
+    mortgageTermRemainingMonths: Object.freeze({ label: "Remaining Term Months", type: "number", step: "1", max: "11", suffix: "Months" }),
+    monthlyMortgagePaymentOnly: Object.freeze({ label: "Mortgage Payment Excluding Tax and Insurance", type: "calculatedCurrency" }),
+    associatedMonthlyCosts: Object.freeze({ label: "Associated Monthly Costs", type: "calculatedCurrency" }),
+    calculatedMonthlyMortgagePayment: Object.freeze({ label: "Calculated Monthly Burden", type: "calculatedCurrency" }),
     escrowStatus: Object.freeze({
       label: "Escrow Status",
       type: "select",
@@ -139,12 +179,21 @@
       "currentBalance",
       "monthlyPayment",
       "interestRatePercent",
+      "mortgageTermRemainingYears",
+      "mortgageTermRemainingMonths",
       "remainingTermMonths",
+      "monthlyMortgagePaymentOnly",
+      "equityAmount",
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
       "hoaMonthly",
+      "homeSquareFootage",
+      "homeAgeYears",
+      "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
       "utilitiesMonthly",
+      "associatedMonthlyCosts",
+      "calculatedMonthlyMortgagePayment",
       "escrowStatus"
     ]),
     primaryResidenceRent: Object.freeze([
@@ -160,8 +209,13 @@
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
       "hoaMonthly",
+      "homeSquareFootage",
+      "homeAgeYears",
+      "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
-      "utilitiesMonthly"
+      "utilitiesMonthly",
+      "associatedMonthlyCosts",
+      "calculatedMonthlyMortgagePayment"
     ]),
     secondMortgageHeloc: Object.freeze([
       "debtSubType",
@@ -185,8 +239,13 @@
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
       "hoaMonthly",
+      "homeSquareFootage",
+      "homeAgeYears",
+      "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
-      "utilitiesMonthly"
+      "utilitiesMonthly",
+      "associatedMonthlyCosts",
+      "calculatedMonthlyMortgagePayment"
     ]),
     rentalInvestmentProperty: Object.freeze([
       "propertyValue",
@@ -196,8 +255,13 @@
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
       "hoaMonthly",
+      "homeSquareFootage",
+      "homeAgeYears",
+      "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
-      "utilitiesMonthly"
+      "utilitiesMonthly",
+      "associatedMonthlyCosts",
+      "calculatedMonthlyMortgagePayment"
     ]),
     temporaryHousing: Object.freeze([
       "monthlyCost",
@@ -208,9 +272,14 @@
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
       "hoaMonthly",
+      "homeSquareFootage",
+      "homeAgeYears",
+      "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
       "utilitiesMonthly",
-      "otherHousingCostMonthly"
+      "otherHousingCostMonthly",
+      "associatedMonthlyCosts",
+      "calculatedMonthlyMortgagePayment"
     ]),
     otherHousingObligation: Object.freeze([
       "monthlyCost",
@@ -223,6 +292,55 @@
     return String(value == null ? "" : value).trim();
   }
 
+  function toOptionalNumber(value) {
+    if (typeof lensAnalysis.toOptionalNumber === "function") {
+      return lensAnalysis.toOptionalNumber(value);
+    }
+
+    if (value == null || value === "") {
+      return null;
+    }
+
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    const normalized = String(value)
+      .replace(/,/g, "")
+      .replace(/[^0-9.-]/g, "")
+      .trim();
+
+    if (!normalized) {
+      return null;
+    }
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function parseCurrencyLikeNumber(value) {
+    const optionalValue = toOptionalNumber(value);
+    return optionalValue == null ? 0 : optionalValue;
+  }
+
+  function isTrue(value) {
+    return value === true || normalizeString(value).toLowerCase() === "true";
+  }
+
+  function formatNumberWithCommas(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      return "";
+    }
+
+    return Math.round(numericValue).toLocaleString("en-US");
+  }
+
+  function formatCurrencyDisplay(value) {
+    const numericValue = toOptionalNumber(value);
+    return numericValue == null ? "" : `$${formatNumberWithCommas(numericValue)}`;
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -233,6 +351,99 @@
 
   function getTypeConfig(typeKey) {
     return HOUSING_TYPE_OPTIONS.find((option) => option.value === typeKey) || HOUSING_TYPE_OPTIONS[0];
+  }
+
+  function getHousingStatusForRecord(record) {
+    const typeKey = getTypeConfig(record?.typeKey).value;
+    if (typeKey === "primaryResidenceRent") {
+      return "Renter";
+    }
+    if (typeKey === "primaryResidenceMortgage") {
+      return "Homeowner";
+    }
+    if (
+      typeKey === "primaryResidenceOwnedFreeAndClear"
+      || typeKey === "secondHomeVacationProperty"
+      || typeKey === "rentalInvestmentProperty"
+      || typeKey === "housingOperatingCostOnly"
+    ) {
+      return "Owns Free and Clear";
+    }
+    return "";
+  }
+
+  function normalizeHomeAgeValue(value) {
+    const rawValue = normalizeString(value);
+    if (!rawValue) {
+      return "";
+    }
+
+    const numericValue = Math.max(0, Math.round(parseCurrencyLikeNumber(rawValue)));
+    return numericValue > 41 ? "42+" : String(numericValue);
+  }
+
+  function mapRecordToHousingCalculationSource(record) {
+    const safeRecord = record && typeof record === "object" ? record : {};
+    const housingStatus = getHousingStatusForRecord(safeRecord);
+    return {
+      housingStatus,
+      mortgageBalance: safeRecord.currentBalance,
+      monthlyMortgagePaymentOnly: safeRecord.monthlyMortgagePaymentOnly,
+      monthlyMortgagePaymentOnlyManualOverride: safeRecord.monthlyMortgagePaymentOnlyManualOverride,
+      mortgageTermRemainingYears: safeRecord.mortgageTermRemainingYears,
+      mortgageTermRemainingMonths: safeRecord.mortgageTermRemainingMonths,
+      mortgageInterestRate: safeRecord.interestRatePercent,
+      monthlyHousingCost: safeRecord.rentMonthly,
+      otherMonthlyRenterHousingCosts: safeRecord.otherHousingCostMonthly,
+      utilitiesCost: safeRecord.utilitiesMonthly,
+      housingInsuranceCost: safeRecord.rentersInsuranceMonthly || safeRecord.homeownersInsuranceMonthly,
+      propertyTax: safeRecord.propertyTaxMonthly,
+      monthlyHoaCost: safeRecord.hoaMonthly,
+      homeSquareFootage: safeRecord.homeSquareFootage,
+      homeAgeYears: safeRecord.homeAgeYears,
+      monthlyMaintenanceRecommendation: safeRecord.monthlyMaintenanceRecommendation,
+      monthlyMaintenanceRecommendationManualOverride: safeRecord.monthlyMaintenanceRecommendationManualOverride,
+      associatedMonthlyCosts: safeRecord.associatedMonthlyCosts,
+      associatedMonthlyCostsManualOverride: safeRecord.associatedMonthlyCostsManualOverride,
+      calculatedMonthlyMortgagePayment: safeRecord.calculatedMonthlyMortgagePayment,
+      calculatedMonthlyMortgagePaymentManualOverride: safeRecord.calculatedMonthlyMortgagePaymentManualOverride
+    };
+  }
+
+  function getCalculatedHousingValues(record, controller) {
+    const calculateHousingSupportInputs = lensAnalysis.housingSupportCalculations?.calculateHousingSupportInputs;
+    if (typeof calculateHousingSupportInputs !== "function") {
+      return {};
+    }
+
+    const maintenanceRows = typeof controller?.maintenanceRowsProvider === "function"
+      ? controller.maintenanceRowsProvider()
+      : null;
+    return calculateHousingSupportInputs(mapRecordToHousingCalculationSource(record), { maintenanceRows }).values || {};
+  }
+
+  function applyCalculatedValuesToRecord(record, controller) {
+    if (!record || typeof record !== "object") {
+      return;
+    }
+
+    const values = getCalculatedHousingValues(record, controller);
+    const valueByField = {
+      monthlyMaintenanceRecommendation: values.calculatedMaintenanceRecommendation,
+      monthlyMortgagePaymentOnly: values.calculatedMortgagePaymentOnly,
+      associatedMonthlyCosts: values.calculatedAssociatedMonthlyCosts,
+      calculatedMonthlyMortgagePayment: values.calculatedMonthlyHousingSupportCost
+    };
+
+    CALCULATED_HOUSING_FIELD_KEYS.forEach((fieldKey) => {
+      const calculatedValue = valueByField[fieldKey];
+      const calculatedKey = `${fieldKey}CalculatedValue`;
+      const manualOverrideKey = `${fieldKey}ManualOverride`;
+      record[calculatedKey] = calculatedValue == null ? "" : String(Math.round(calculatedValue));
+      if (!isTrue(record[manualOverrideKey])) {
+        record[fieldKey] = record[calculatedKey];
+      }
+    });
   }
 
   function createHousingRecord(partialRecord) {
@@ -286,6 +497,10 @@
       return `<select ${commonAttributes}>${renderOptions(CONTINUES_AFTER_DEATH_OPTIONS, record.continuesAfterDeath)}</select>`;
     }
 
+    if (fieldConfig.type === "homeSquareFootage") {
+      return `<select ${commonAttributes}>${renderOptions(HOME_SQUARE_FOOTAGE_OPTIONS, value)}</select>`;
+    }
+
     if (fieldConfig.type === "select") {
       return `<select ${commonAttributes}>${renderOptions(fieldConfig.options, value)}</select>`;
     }
@@ -294,11 +509,24 @@
       return `<textarea ${commonAttributes} rows="2">${escapeHtml(value)}</textarea>`;
     }
 
+    if (fieldConfig.type === "calculatedCurrency") {
+      const manualOverride = isTrue(record[`${fieldKey}ManualOverride`]);
+      return `
+        <div class="profile-currency-field pmi-housing-record-input-shell pmi-housing-record-calculated-shell">
+          <input ${commonAttributes} data-pmi-housing-record-calculated-input="${escapeHtml(fieldKey)}" type="text" inputmode="decimal" value="${escapeHtml(formatCurrencyDisplay(value))}" readonly>
+          <span class="profile-currency-suffix">USD</span>
+          <button class="net-income-action pmi-housing-record-calculated-action" type="button" data-pmi-housing-record-calculated-action="${escapeHtml(fieldKey)}">${manualOverride ? "Reset" : "Edit"}</button>
+        </div>
+      `;
+    }
+
     const inputType = fieldConfig.type === "date" ? "date" : fieldConfig.type === "number" ? "number" : "text";
     const step = fieldConfig.step ? ` step="${escapeHtml(fieldConfig.step)}"` : "";
     const min = inputType === "number" ? ' min="0"' : "";
+    const max = fieldConfig.max ? ` max="${escapeHtml(fieldConfig.max)}"` : "";
+    const inputMode = fieldConfig.inputMode ? ` inputmode="${escapeHtml(fieldConfig.inputMode)}"` : "";
     const placeholder = fieldConfig.placeholder ? ` placeholder="${escapeHtml(fieldConfig.placeholder)}"` : "";
-    const control = `<input ${commonAttributes} type="${inputType}" value="${escapeHtml(value)}"${min}${step}${placeholder}>`;
+    const control = `<input ${commonAttributes} type="${inputType}" value="${escapeHtml(value)}"${min}${max}${step}${inputMode}${placeholder}>`;
 
     if (!fieldConfig.suffix) {
       return control;
@@ -385,7 +613,10 @@
       root,
       records: [],
       addButton: root.querySelector("[data-pmi-housing-record-add]"),
-      list: root.querySelector("[data-pmi-housing-records-list]")
+      list: root.querySelector("[data-pmi-housing-records-list]"),
+      maintenanceRowsProvider: typeof safeOptions.maintenanceRowsProvider === "function"
+        ? safeOptions.maintenanceRowsProvider
+        : null
     };
 
     function syncRecordFromRow(row) {
@@ -401,6 +632,9 @@
 
       row.querySelectorAll("[data-pmi-housing-record-input]").forEach((field) => {
         const fieldKey = field.getAttribute("data-pmi-housing-record-input");
+        if (field.dataset.pmiHousingRecordCalculatedInput && field.readOnly) {
+          return;
+        }
         record[fieldKey] = field.value;
       });
       record.typeKey = getTypeConfig(record.typeKey).value;
@@ -418,11 +652,103 @@
       }));
     }
 
+    function updateCalculatedDisplaysForRow(row) {
+      if (!row) {
+        return;
+      }
+
+      const recordId = row.getAttribute("data-housing-record-id");
+      const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+      if (!record) {
+        return;
+      }
+
+      applyCalculatedValuesToRecord(record, controller);
+      CALCULATED_HOUSING_FIELD_KEYS.forEach((fieldKey) => {
+        const input = row.querySelector(`[data-pmi-housing-record-calculated-input="${fieldKey}"]`);
+        const actionButton = row.querySelector(`[data-pmi-housing-record-calculated-action="${fieldKey}"]`);
+        if (!input || input.dataset.editing === "true") {
+          return;
+        }
+
+        input.value = formatCurrencyDisplay(record[fieldKey]);
+        input.readOnly = true;
+        input.closest(".profile-currency-field")?.classList.remove("is-editing");
+        if (actionButton) {
+          actionButton.textContent = isTrue(record[`${fieldKey}ManualOverride`]) ? "Reset" : "Edit";
+        }
+      });
+    }
+
+    function beginCalculatedFieldEdit(row, fieldKey) {
+      const input = row?.querySelector(`[data-pmi-housing-record-calculated-input="${fieldKey}"]`);
+      if (!input) {
+        return;
+      }
+
+      const recordId = row.getAttribute("data-housing-record-id");
+      const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+      if (!record) {
+        return;
+      }
+
+      input.dataset.editing = "true";
+      input.readOnly = false;
+      input.closest(".profile-currency-field")?.classList.add("is-editing");
+      input.value = String(parseCurrencyLikeNumber(record[fieldKey]) || 0);
+      input.focus();
+      input.select();
+    }
+
+    function resetCalculatedField(row, fieldKey) {
+      const recordId = row?.getAttribute("data-housing-record-id");
+      const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+      if (!record) {
+        return;
+      }
+
+      delete record[`${fieldKey}ManualOverride`];
+      delete record[`${fieldKey}ManualValue`];
+      applyCalculatedValuesToRecord(record, controller);
+      renderRows();
+      notifyChange();
+    }
+
+    function finalizeCalculatedFieldEdit(input) {
+      if (!input || input.dataset.editing !== "true") {
+        return;
+      }
+
+      const row = input.closest("[data-pmi-housing-record-entry]");
+      const fieldKey = input.getAttribute("data-pmi-housing-record-calculated-input");
+      const recordId = row?.getAttribute("data-housing-record-id");
+      const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+      if (!record || !fieldKey) {
+        return;
+      }
+
+      const typedValue = parseCurrencyLikeNumber(input.value);
+      const calculatedValue = parseCurrencyLikeNumber(record[`${fieldKey}CalculatedValue`]);
+      if (input.value.trim() && typedValue !== calculatedValue) {
+        record[fieldKey] = String(typedValue);
+        record[`${fieldKey}ManualOverride`] = true;
+        record[`${fieldKey}ManualValue`] = String(typedValue);
+      } else {
+        delete record[`${fieldKey}ManualOverride`];
+        delete record[`${fieldKey}ManualValue`];
+      }
+
+      delete input.dataset.editing;
+      renderRows();
+      notifyChange();
+    }
+
     function renderRows() {
       if (!controller.list) {
         return;
       }
 
+      controller.records.forEach((record) => applyCalculatedValuesToRecord(record, controller));
       controller.list.innerHTML = controller.records.length
         ? controller.records.map(renderRecord).join("")
         : '<p class="pmi-housing-records-empty">Add a housing record to begin.</p>';
@@ -453,6 +779,19 @@
 
     controller.addButton?.addEventListener("click", () => addHousingRecord({}));
     controller.list?.addEventListener("click", (event) => {
+      const calculatedActionButton = event.target.closest("[data-pmi-housing-record-calculated-action]");
+      if (calculatedActionButton) {
+        const row = calculatedActionButton.closest("[data-pmi-housing-record-entry]");
+        const fieldKey = calculatedActionButton.getAttribute("data-pmi-housing-record-calculated-action");
+        const input = row?.querySelector(`[data-pmi-housing-record-calculated-input="${fieldKey}"]`);
+        if (input?.dataset.editing === "true" || calculatedActionButton.textContent === "Reset") {
+          resetCalculatedField(row, fieldKey);
+        } else {
+          beginCalculatedFieldEdit(row, fieldKey);
+        }
+        return;
+      }
+
       const removeButton = event.target.closest("[data-pmi-housing-record-remove]");
       if (!removeButton) {
         return;
@@ -485,9 +824,58 @@
           }
         }
         renderRows();
+      } else if (CALCULATION_SOURCE_FIELD_KEYS.includes(fieldKey)) {
+        updateCalculatedDisplaysForRow(row);
       }
       notifyChange();
     });
+
+    controller.list?.addEventListener("change", (event) => {
+      const row = event.target.closest("[data-pmi-housing-record-entry]");
+      if (!row) {
+        return;
+      }
+
+      const fieldKey = event.target.getAttribute("data-pmi-housing-record-input");
+      const recordId = row.getAttribute("data-housing-record-id");
+      const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+      if (!record) {
+        return;
+      }
+
+      syncRecordFromRow(row);
+      if (fieldKey === "homeAgeYears") {
+        record.homeAgeYears = normalizeHomeAgeValue(record.homeAgeYears);
+        event.target.value = record.homeAgeYears;
+      }
+
+      if (CALCULATION_SOURCE_FIELD_KEYS.includes(fieldKey)) {
+        updateCalculatedDisplaysForRow(row);
+        notifyChange();
+      }
+    });
+
+    controller.list?.addEventListener("blur", (event) => {
+      const calculatedInput = event.target.closest("[data-pmi-housing-record-calculated-input]");
+      if (calculatedInput) {
+        finalizeCalculatedFieldEdit(calculatedInput);
+        return;
+      }
+
+      const row = event.target.closest("[data-pmi-housing-record-entry]");
+      const fieldKey = event.target.getAttribute("data-pmi-housing-record-input");
+      if (row && fieldKey === "homeAgeYears") {
+        syncRecordFromRow(row);
+        const recordId = row.getAttribute("data-housing-record-id");
+        const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+        if (record) {
+          record.homeAgeYears = normalizeHomeAgeValue(record.homeAgeYears);
+          event.target.value = record.homeAgeYears;
+          updateCalculatedDisplaysForRow(row);
+          notifyChange();
+        }
+      }
+    }, true);
 
     hydrateHousingRecords([]);
     activeController = controller;

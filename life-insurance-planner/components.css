@@ -2468,6 +2468,18 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   box-shadow: none;
 }
 
+.pmi-housing-record-calculated-shell input {
+  padding-right: 4.7rem;
+}
+
+.pmi-housing-record-calculated-action {
+  right: 0.34rem;
+}
+
+.pmi-housing-record-input-shell.pmi-housing-record-calculated-shell .profile-currency-suffix {
+  right: 2.95rem;
+}
+
 .pmi-housing-record-input-shell .profile-currency-suffix {
   right: 0.42rem;
   color: var(--m90-text-muted);
