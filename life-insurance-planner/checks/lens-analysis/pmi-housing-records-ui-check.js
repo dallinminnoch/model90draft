@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
 
 const repoRoot = path.resolve(__dirname, "../..");
 const modulePath = path.join(repoRoot, "app/features/lens-analysis/pmi-housing-records.js");
@@ -38,9 +39,7 @@ const pageSources = [
 ];
 
 const requiredTypeKeys = [
-  "primaryResidenceMortgage",
-  "primaryResidenceRent",
-  "primaryResidenceOwnedFreeAndClear",
+  "primaryResidence",
   "secondHomeVacationProperty",
   "rentalInvestmentProperty",
   "temporaryHousing",
@@ -73,6 +72,7 @@ const requiredFieldKeys = [
   "associatedMonthlyCosts",
   "calculatedMonthlyMortgagePayment",
   "propertySecuredDebts",
+  "primaryResidenceArrangement",
   "debtType",
   "debtSubType",
   "rateType",
@@ -94,6 +94,10 @@ const requiredFieldKeys = [
   "notes",
   "reviewStatus"
 ];
+
+const vmContext = { window: {} };
+vm.runInNewContext(moduleSource, vmContext, { filename: modulePath });
+const housingRecordsApi = vmContext.window.LensApp.lensAnalysis.pmiHousingRecords;
 
 pageSources.forEach(({ name, source }) => {
   assert(source.includes("data-pmi-housing-records-root"), `${name} does not mount the Housing Records root.`);
@@ -130,6 +134,8 @@ assert(moduleSource.includes("updateCalculatedDisplaysForRow"), "Housing Records
 assert(moduleSource.includes("data-pmi-housing-record-calculated-action"), "Housing Records calculated fields do not expose edit/reset actions.");
 assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), "Maintenance manual override metadata is missing.");
 assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
+assert(moduleSource.includes("PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS"), "Primary residence arrangement options are missing.");
+assert(moduleSource.includes("primaryResidenceArrangement"), "Primary residence arrangement key is missing.");
 assert(moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Removed escrow field sanitizer is missing.");
 assert(moduleSource.includes("omitRemovedEscrowFields"), "Escrow field omission helper is missing.");
 assert(moduleSource.includes("controller.records.map(serializeHousingRecord)"), "Housing Records serialization does not use the safe record serializer.");
@@ -157,7 +163,15 @@ assert(moduleSource.includes("serializeHousingRecord"), "Housing Records seriali
 
 const housingTypeOptionsMatch = moduleSource.match(/const HOUSING_TYPE_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(housingTypeOptionsMatch, "Could not inspect top-level Housing Record type options.");
+assert(housingTypeOptionsMatch[1].includes('value: "primaryResidence"'), "Top-level Housing Record type picker is missing Primary residence.");
+assert(housingTypeOptionsMatch[1].includes('label: "Primary residence"'), "Top-level Housing Record type picker should label the option Primary residence.");
 [
+  "primaryResidenceMortgage",
+  "Primary Residence - Mortgage",
+  "primaryResidenceRent",
+  "Primary Residence - Rent",
+  "primaryResidenceOwnedFreeAndClear",
+  "Primary Residence - Owned Free and Clear",
   "secondMortgageHeloc",
   "Second Mortgage / HELOC",
   'value: "secondMortgage"',
@@ -173,6 +187,74 @@ assert(housingTypeOptionsMatch, "Could not inspect top-level Housing Record type
 const fieldGroupsMatch = moduleSource.match(/const FIELD_GROUPS_BY_TYPE = Object\.freeze\(\{([\s\S]*?)\n  \}\);/);
 assert(fieldGroupsMatch, "Could not inspect top-level Housing Record field groups.");
 assert(!fieldGroupsMatch[1].includes("secondMortgageHeloc:"), "Removed secondMortgageHeloc field group should not remain.");
+
+const arrangementOptionsMatch = moduleSource.match(/const PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert(arrangementOptionsMatch, "Could not inspect Primary Residence arrangement options.");
+[
+  "Own with mortgage",
+  "Own free and clear",
+  "Rent"
+].forEach((arrangementLabel) => {
+  assert(arrangementOptionsMatch[1].includes(arrangementLabel), `Primary residence arrangement ${arrangementLabel} is missing.`);
+});
+assert(moduleSource.includes('type: "primaryResidenceArrangement"'), "Primary Residence arrangement selector field is missing.");
+
+const topLevelTypeValues = housingRecordsApi.housingTypeOptions.map((option) => option.value);
+assert(topLevelTypeValues.includes("primaryResidence"), "Exported top-level type options are missing primaryResidence.");
+[
+  "primaryResidenceMortgage",
+  "primaryResidenceRent",
+  "primaryResidenceOwnedFreeAndClear",
+  "secondMortgageHeloc",
+  "secondMortgage",
+  "heloc",
+  "homeEquityLoan"
+].forEach((forbiddenType) => {
+  assert(!topLevelTypeValues.includes(forbiddenType), `Exported top-level type options include removed ${forbiddenType}.`);
+});
+
+const arrangementLabels = housingRecordsApi.primaryResidenceArrangementOptions.map((option) => option.label);
+[
+  "Own with mortgage",
+  "Own free and clear",
+  "Rent"
+].forEach((label) => {
+  assert(arrangementLabels.includes(label), `Exported Primary Residence arrangement ${label} is missing.`);
+});
+
+[
+  ["primaryResidenceMortgage", "ownWithMortgage"],
+  ["primaryResidenceRent", "rent"],
+  ["primaryResidenceOwnedFreeAndClear", "ownFreeAndClear"]
+].forEach(([oldTypeKey, expectedArrangement]) => {
+  const migratedRecord = housingRecordsApi.createHousingRecord({
+    typeKey: oldTypeKey,
+    propertyValue: "500000",
+    currentBalance: "300000",
+    rentMonthly: "2500",
+    propertySecuredDebts: [{ debtType: "heloc", currentBalance: "10000" }]
+  });
+  assert(migratedRecord.typeKey === "primaryResidence", `${oldTypeKey} did not migrate to primaryResidence.`);
+  assert(
+    migratedRecord.primaryResidenceArrangement === expectedArrangement,
+    `${oldTypeKey} did not migrate to arrangement ${expectedArrangement}.`
+  );
+  assert(migratedRecord.propertyValue === "500000", `${oldTypeKey} did not preserve propertyValue.`);
+  if (expectedArrangement === "rent") {
+    assert(migratedRecord.rentMonthly === "2500", `${oldTypeKey} did not preserve rentMonthly.`);
+    assert(migratedRecord.propertySecuredDebts.length === 0, `${oldTypeKey} rent migration should not preserve property-secured debts.`);
+  }
+  if (expectedArrangement !== "rent") {
+    assert(migratedRecord.propertySecuredDebts.length === 1, `${oldTypeKey} owned migration did not preserve property-secured debts.`);
+  }
+});
+
+const primaryRentRecord = housingRecordsApi.createHousingRecord({
+  typeKey: "primaryResidence",
+  primaryResidenceArrangement: "rent",
+  propertySecuredDebts: [{ debtType: "heloc" }]
+});
+assert(primaryRentRecord.propertySecuredDebts.length === 0, "Primary Residence rent should not retain property-secured debts.");
 
 [
   "secondMortgage",
@@ -192,8 +274,7 @@ assert(moduleSource.includes("Additional Property-Secured Debts"), "Additional P
 assert(!moduleSource.includes(">Property-Secured Debts<"), "Old Property-Secured Debts section label should not remain visible.");
 
 [
-  "primaryResidenceMortgage",
-  "primaryResidenceOwnedFreeAndClear",
+  "primaryResidence",
   "secondHomeVacationProperty",
   "rentalInvestmentProperty",
   "housingOperatingCostOnly"
@@ -202,7 +283,9 @@ assert(!moduleSource.includes(">Property-Secured Debts<"), "Old Property-Secured
 });
 const propertySecuredDebtOwnerTypesMatch = moduleSource.match(/const PROPERTY_SECURED_DEBT_OWNER_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(propertySecuredDebtOwnerTypesMatch, "Could not inspect property-secured debt owner types.");
-assert(!propertySecuredDebtOwnerTypesMatch[1].includes('"primaryResidenceRent"'), "Rent records should not show property-secured debt sections.");
+assert(!propertySecuredDebtOwnerTypesMatch[1].includes('"primaryResidenceMortgage"'), "Old primary residence mortgage owner type should not remain in secured-debt owner list.");
+assert(!propertySecuredDebtOwnerTypesMatch[1].includes('"primaryResidenceOwnedFreeAndClear"'), "Old primary residence free-and-clear owner type should not remain in secured-debt owner list.");
+assert(moduleSource.includes('normalizePrimaryResidenceArrangement(recordOrTypeKey?.primaryResidenceArrangement) !== "rent"'), "Primary residence rent arrangements should not support property-secured debt sections.");
 
 requiredTypeKeys.forEach((typeKey) => {
   assert(moduleSource.includes(typeKey), `Housing record type ${typeKey} is missing.`);
@@ -230,8 +313,29 @@ function assertTypeExcludes(typeKey, fieldKeys) {
   });
 }
 
-assertTypeIncludes("primaryResidenceMortgage", [
+function assertArrangementIncludes(arrangementKey, fieldKeys) {
+  const groupPattern = new RegExp(`${arrangementKey}: Object\\.freeze\\(\\[([\\s\\S]*?)\\]\\)`);
+  const groupMatch = moduleSource.match(groupPattern);
+  assert(groupMatch, `Could not find Primary Residence arrangement field group for ${arrangementKey}.`);
+  fieldKeys.forEach((fieldKey) => {
+    assert(groupMatch[1].includes(`"${fieldKey}"`), `${arrangementKey} is missing ${fieldKey}.`);
+  });
+}
+
+function assertArrangementExcludes(arrangementKey, fieldKeys) {
+  const groupPattern = new RegExp(`${arrangementKey}: Object\\.freeze\\(\\[([\\s\\S]*?)\\]\\)`);
+  const groupMatch = moduleSource.match(groupPattern);
+  assert(groupMatch, `Could not find Primary Residence arrangement field group for ${arrangementKey}.`);
+  fieldKeys.forEach((fieldKey) => {
+    assert(!groupMatch[1].includes(`"${fieldKey}"`), `${arrangementKey} should not include ${fieldKey}.`);
+  });
+}
+
+assertArrangementIncludes("ownWithMortgage", [
+  "propertyValue",
+  "equityAmount",
   "currentBalance",
+  "monthlyPayment",
   "interestRatePercent",
   "mortgageTermRemainingYears",
   "mortgageTermRemainingMonths",
@@ -248,7 +352,7 @@ assertTypeIncludes("primaryResidenceMortgage", [
   "homeAgeYears",
   "monthlyMaintenanceRecommendation"
 ]);
-assertTypeExcludes("primaryResidenceMortgage", [
+assertArrangementExcludes("ownWithMortgage", [
   "escrowStatus",
   "costsIncludedInPayment",
   "propertyTaxIncludedInPayment",
@@ -256,18 +360,27 @@ assertTypeExcludes("primaryResidenceMortgage", [
   "homeownersInsuranceIncludedInPayment",
   "hoaIncludedInPayment"
 ]);
-assertTypeIncludes("primaryResidenceRent", [
+assertArrangementIncludes("rent", [
   "rentMonthly",
   "otherHousingCostMonthly",
   "utilitiesMonthly",
   "rentersInsuranceMonthly"
 ]);
-assertTypeExcludes("primaryResidenceRent", [
+assertArrangementExcludes("rent", [
+  "currentBalance",
+  "monthlyPayment",
+  "interestRatePercent",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
+  "monthlyMortgagePaymentOnly",
+  "propertyValue",
+  "equityAmount",
   "homeSquareFootage",
   "homeAgeYears",
   "monthlyMaintenanceRecommendation"
 ]);
-assertTypeIncludes("primaryResidenceOwnedFreeAndClear", [
+assertArrangementIncludes("ownFreeAndClear", [
+  "propertyValue",
   "equityAmount",
   "propertyTaxMonthly",
   "hoaMonthly",
@@ -278,6 +391,14 @@ assertTypeIncludes("primaryResidenceOwnedFreeAndClear", [
   "homeSquareFootage",
   "homeAgeYears",
   "monthlyMaintenanceRecommendation"
+]);
+assertArrangementExcludes("ownFreeAndClear", [
+  "currentBalance",
+  "monthlyPayment",
+  "interestRatePercent",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
+  "monthlyMortgagePaymentOnly"
 ]);
 ["secondHomeVacationProperty", "rentalInvestmentProperty", "housingOperatingCostOnly"].forEach((typeKey) => {
   assertTypeIncludes(typeKey, [

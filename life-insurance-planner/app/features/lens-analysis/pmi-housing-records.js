@@ -11,14 +11,18 @@
   let activeController = null;
 
   const HOUSING_TYPE_OPTIONS = Object.freeze([
-    Object.freeze({ value: "primaryResidenceMortgage", label: "Primary Residence - Mortgage" }),
-    Object.freeze({ value: "primaryResidenceRent", label: "Primary Residence - Rent" }),
-    Object.freeze({ value: "primaryResidenceOwnedFreeAndClear", label: "Primary Residence - Owned Free and Clear" }),
+    Object.freeze({ value: "primaryResidence", label: "Primary residence" }),
     Object.freeze({ value: "secondHomeVacationProperty", label: "Second Home / Vacation Property" }),
     Object.freeze({ value: "rentalInvestmentProperty", label: "Rental / Investment Property" }),
     Object.freeze({ value: "temporaryHousing", label: "Temporary Housing" }),
     Object.freeze({ value: "housingOperatingCostOnly", label: "Housing Operating Costs Only" }),
     Object.freeze({ value: "otherHousingObligation", label: "Other Housing Obligation" })
+  ]);
+
+  const PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS = Object.freeze([
+    Object.freeze({ value: "ownWithMortgage", label: "Own with mortgage" }),
+    Object.freeze({ value: "ownFreeAndClear", label: "Own free and clear" }),
+    Object.freeze({ value: "rent", label: "Rent" })
   ]);
 
   const PROPERTY_ROLE_OPTIONS = Object.freeze([
@@ -90,9 +94,14 @@
     "homeEquityLoan"
   ]);
 
+  const LEGACY_PRIMARY_RESIDENCE_TYPE_ARRANGEMENTS = Object.freeze({
+    primaryResidenceMortgage: "ownWithMortgage",
+    primaryResidenceRent: "rent",
+    primaryResidenceOwnedFreeAndClear: "ownFreeAndClear"
+  });
+
   const PROPERTY_SECURED_DEBT_OWNER_TYPES = Object.freeze([
-    "primaryResidenceMortgage",
-    "primaryResidenceOwnedFreeAndClear",
+    "primaryResidence",
     "secondHomeVacationProperty",
     "rentalInvestmentProperty",
     "housingOperatingCostOnly"
@@ -136,6 +145,7 @@
   const FIELD_DEFINITIONS = Object.freeze({
     label: Object.freeze({ label: "Record Label", type: "text", placeholder: "Housing record" }),
     typeKey: Object.freeze({ label: "Housing Type", type: "housingType" }),
+    primaryResidenceArrangement: Object.freeze({ label: "Primary Residence Arrangement", type: "primaryResidenceArrangement" }),
     propertyRole: Object.freeze({ label: "Property Role", type: "propertyRole" }),
     continuesAfterDeath: Object.freeze({ label: "Continues After Death?", type: "continuesAfterDeath" }),
     propertyValue: Object.freeze({ label: "Property Value", type: "number", step: "1000", suffix: "USD" }),
@@ -226,10 +236,12 @@
   });
 
   const BASE_FIELDS = Object.freeze(["label", "typeKey", "propertyRole", "continuesAfterDeath"]);
+  const PRIMARY_RESIDENCE_BASE_FIELDS = Object.freeze(["label", "typeKey", "primaryResidenceArrangement", "propertyRole", "continuesAfterDeath"]);
 
-  const FIELD_GROUPS_BY_TYPE = Object.freeze({
-    primaryResidenceMortgage: Object.freeze([
+  const PRIMARY_RESIDENCE_FIELD_GROUPS_BY_ARRANGEMENT = Object.freeze({
+    ownWithMortgage: Object.freeze([
       "propertyValue",
+      "equityAmount",
       "currentBalance",
       "monthlyPayment",
       "interestRatePercent",
@@ -237,7 +249,6 @@
       "mortgageTermRemainingMonths",
       "remainingTermMonths",
       "monthlyMortgagePaymentOnly",
-      "equityAmount",
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
       "hoaMonthly",
@@ -250,14 +261,14 @@
       "associatedMonthlyCosts",
       "calculatedMonthlyMortgagePayment"
     ]),
-    primaryResidenceRent: Object.freeze([
+    rent: Object.freeze([
       "rentMonthly",
       "leaseTermMonths",
       "otherHousingCostMonthly",
       "utilitiesMonthly",
       "rentersInsuranceMonthly"
     ]),
-    primaryResidenceOwnedFreeAndClear: Object.freeze([
+    ownFreeAndClear: Object.freeze([
       "propertyValue",
       "equityAmount",
       "propertyTaxMonthly",
@@ -271,7 +282,10 @@
       "otherHousingCostMonthly",
       "associatedMonthlyCosts",
       "calculatedMonthlyMortgagePayment"
-    ]),
+    ])
+  });
+
+  const FIELD_GROUPS_BY_TYPE = Object.freeze({
     secondHomeVacationProperty: Object.freeze([
       "propertyValue",
       "mortgageBalance",
@@ -395,6 +409,24 @@
     return HOUSING_TYPE_OPTIONS.find((option) => option.value === typeKey) || HOUSING_TYPE_OPTIONS[0];
   }
 
+  function getPrimaryResidenceArrangementConfig(arrangement) {
+    return PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS.find((option) => option.value === arrangement)
+      || PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS[0];
+  }
+
+  function normalizePrimaryResidenceArrangement(value) {
+    return getPrimaryResidenceArrangementConfig(normalizeString(value)).value;
+  }
+
+  function getPrimaryResidenceArrangementForSource(source) {
+    const rawTypeKey = normalizeString(source?.typeKey);
+    return normalizePrimaryResidenceArrangement(
+      source?.primaryResidenceArrangement
+      || LEGACY_PRIMARY_RESIDENCE_TYPE_ARRANGEMENTS[rawTypeKey]
+      || ""
+    );
+  }
+
   function getPropertySecuredDebtTypeConfig(debtType) {
     return PROPERTY_SECURED_DEBT_TYPE_OPTIONS.find((option) => option.value === debtType)
       || PROPERTY_SECURED_DEBT_TYPE_OPTIONS[0];
@@ -415,7 +447,13 @@
     const typeKey = typeof recordOrTypeKey === "string"
       ? getTypeConfig(recordOrTypeKey).value
       : getTypeConfig(recordOrTypeKey?.typeKey).value;
-    return PROPERTY_SECURED_DEBT_OWNER_TYPES.includes(typeKey);
+    if (!PROPERTY_SECURED_DEBT_OWNER_TYPES.includes(typeKey)) {
+      return false;
+    }
+    if (typeKey === "primaryResidence" && typeof recordOrTypeKey !== "string") {
+      return normalizePrimaryResidenceArrangement(recordOrTypeKey?.primaryResidenceArrangement) !== "rent";
+    }
+    return true;
   }
 
   function omitRemovedEscrowFields(record) {
@@ -490,14 +528,15 @@
 
   function getHousingStatusForRecord(record) {
     const typeKey = getTypeConfig(record?.typeKey).value;
-    if (typeKey === "primaryResidenceRent") {
+    const primaryResidenceArrangement = normalizePrimaryResidenceArrangement(record?.primaryResidenceArrangement);
+    if (typeKey === "primaryResidence" && primaryResidenceArrangement === "rent") {
       return "Renter";
     }
-    if (typeKey === "primaryResidenceMortgage") {
+    if (typeKey === "primaryResidence" && primaryResidenceArrangement === "ownWithMortgage") {
       return "Homeowner";
     }
     if (
-      typeKey === "primaryResidenceOwnedFreeAndClear"
+      (typeKey === "primaryResidence" && primaryResidenceArrangement === "ownFreeAndClear")
       || typeKey === "secondHomeVacationProperty"
       || typeKey === "rentalInvestmentProperty"
       || typeKey === "housingOperatingCostOnly"
@@ -583,15 +622,22 @@
 
   function createHousingRecord(partialRecord) {
     const source = migrateRemovedTopLevelSecuredDebtRecord(omitRemovedEscrowFields(partialRecord));
-    const typeKey = getTypeConfig(source.typeKey).value;
+    const rawTypeKey = normalizeString(source.typeKey);
+    const typeKey = LEGACY_PRIMARY_RESIDENCE_TYPE_ARRANGEMENTS[rawTypeKey]
+      ? "primaryResidence"
+      : getTypeConfig(source.typeKey).value;
+    const primaryResidenceArrangement = typeKey === "primaryResidence"
+      ? getPrimaryResidenceArrangementForSource(source)
+      : normalizePrimaryResidenceArrangement(source.primaryResidenceArrangement);
     const label = normalizeString(source.label) || getTypeConfig(typeKey).label;
     const housingRecordId = normalizeString(source.housingRecordId)
       || `housing-record-${Date.now().toString(36)}-${++generatedHousingRecordCounter}`;
-    const propertySecuredDebts = supportsPropertySecuredDebts(typeKey) && Array.isArray(source.propertySecuredDebts)
+    const recordForSupport = { typeKey, primaryResidenceArrangement };
+    const propertySecuredDebts = supportsPropertySecuredDebts(recordForSupport) && Array.isArray(source.propertySecuredDebts)
       ? source.propertySecuredDebts.map(createPropertySecuredDebt)
       : [];
 
-    return {
+    const housingRecord = {
       housingRecordId,
       typeKey,
       label,
@@ -600,25 +646,44 @@
       ...source,
       housingRecordId,
       typeKey,
+      primaryResidenceArrangement,
       label,
       propertySecuredDebts
     };
+    if (typeKey !== "primaryResidence") {
+      delete housingRecord.primaryResidenceArrangement;
+    }
+    return housingRecord;
   }
 
   function serializeHousingRecord(record) {
     const sanitizedRecord = omitRemovedEscrowFields(record);
     const typeKey = getTypeConfig(sanitizedRecord.typeKey).value;
-    if (!supportsPropertySecuredDebts(typeKey)) {
+    const recordForSupport = {
+      ...sanitizedRecord,
+      typeKey,
+      primaryResidenceArrangement: typeKey === "primaryResidence"
+        ? normalizePrimaryResidenceArrangement(sanitizedRecord.primaryResidenceArrangement)
+        : sanitizedRecord.primaryResidenceArrangement
+    };
+    if (!supportsPropertySecuredDebts(recordForSupport)) {
       const { propertySecuredDebts, ...recordWithoutSecuredDebts } = sanitizedRecord;
+      if (typeKey !== "primaryResidence") {
+        delete recordWithoutSecuredDebts.primaryResidenceArrangement;
+      }
       return recordWithoutSecuredDebts;
     }
 
-    return {
+    const serializedRecord = {
       ...sanitizedRecord,
       propertySecuredDebts: Array.isArray(sanitizedRecord.propertySecuredDebts)
         ? sanitizedRecord.propertySecuredDebts.map(createPropertySecuredDebt)
         : []
     };
+    if (typeKey !== "primaryResidence") {
+      delete serializedRecord.primaryResidenceArrangement;
+    }
+    return serializedRecord;
   }
 
   function renderOptions(options, selectedValue) {
@@ -636,10 +701,29 @@
     return normalizeString(record.debtSubType) === fieldConfig.showForDebtSubType;
   }
 
+  function getBaseFieldsForRecord(record) {
+    const typeKey = getTypeConfig(record?.typeKey).value;
+    if (typeKey !== "primaryResidence") {
+      return BASE_FIELDS;
+    }
+    return PRIMARY_RESIDENCE_BASE_FIELDS;
+  }
+
+  function getFieldGroupForRecord(record) {
+    const typeKey = getTypeConfig(record?.typeKey).value;
+    if (typeKey === "primaryResidence") {
+      return PRIMARY_RESIDENCE_FIELD_GROUPS_BY_ARRANGEMENT[
+        normalizePrimaryResidenceArrangement(record?.primaryResidenceArrangement)
+      ] || PRIMARY_RESIDENCE_FIELD_GROUPS_BY_ARRANGEMENT.ownWithMortgage;
+    }
+    return FIELD_GROUPS_BY_TYPE[typeKey] || PRIMARY_RESIDENCE_FIELD_GROUPS_BY_ARRANGEMENT.ownWithMortgage;
+  }
+
   function getFieldLabel(fieldKey, fieldConfig, record) {
     const typeKey = getTypeConfig(record?.typeKey).value;
+    const primaryResidenceArrangement = normalizePrimaryResidenceArrangement(record?.primaryResidenceArrangement);
     const isMainMortgageRecord = (
-      typeKey === "primaryResidenceMortgage"
+      (typeKey === "primaryResidence" && primaryResidenceArrangement === "ownWithMortgage")
       || typeKey === "secondHomeVacationProperty"
       || typeKey === "rentalInvestmentProperty"
     );
@@ -678,6 +762,10 @@
 
     if (fieldConfig.type === "housingType") {
       return `<select ${commonAttributes}>${renderOptions(HOUSING_TYPE_OPTIONS, record.typeKey)}</select>`;
+    }
+
+    if (fieldConfig.type === "primaryResidenceArrangement") {
+      return `<select ${commonAttributes}>${renderOptions(PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS, record.primaryResidenceArrangement)}</select>`;
     }
 
     if (fieldConfig.type === "propertyRole") {
@@ -876,7 +964,8 @@
   }
 
   function renderRecord(record, index) {
-    const typeFields = FIELD_GROUPS_BY_TYPE[record.typeKey] || FIELD_GROUPS_BY_TYPE.primaryResidenceMortgage;
+    const baseFields = getBaseFieldsForRecord(record);
+    const typeFields = getFieldGroupForRecord(record);
     const typeLabel = getTypeConfig(record.typeKey).label;
 
     return `
@@ -889,7 +978,7 @@
           <button class="pmi-housing-record-remove" type="button" data-pmi-housing-record-remove aria-label="Remove housing record">Remove</button>
         </div>
         <div class="pmi-housing-record-fields pmi-housing-record-fields--base">
-          ${BASE_FIELDS.map((fieldKey) => renderField(fieldKey, record, "base")).join("")}
+          ${baseFields.map((fieldKey) => renderField(fieldKey, record, "base")).join("")}
         </div>
         <div class="pmi-housing-record-fields pmi-housing-record-fields--type">
           ${typeFields.map((fieldKey) => renderField(fieldKey, record, record.typeKey)).join("")}
@@ -960,6 +1049,11 @@
         record[fieldKey] = field.value;
       });
       record.typeKey = getTypeConfig(record.typeKey).value;
+      if (record.typeKey === "primaryResidence") {
+        record.primaryResidenceArrangement = normalizePrimaryResidenceArrangement(record.primaryResidenceArrangement);
+      } else {
+        delete record.primaryResidenceArrangement;
+      }
       record.label = normalizeString(record.label) || getTypeConfig(record.typeKey).label;
       syncPropertySecuredDebtsFromRow(row, record);
       if (!supportsPropertySecuredDebts(record)) {
@@ -1203,7 +1297,7 @@
       const record = controller.records.find((entry) => entry.housingRecordId === recordId);
       const previousTypeKey = record?.typeKey;
       syncRecordFromRow(row);
-      if (fieldKey === "typeKey" || fieldKey === "debtSubType") {
+      if (fieldKey === "typeKey" || fieldKey === "primaryResidenceArrangement" || fieldKey === "debtSubType") {
         if (fieldKey === "typeKey" && record) {
           const previousTypeLabel = getTypeConfig(previousTypeKey).label;
           const currentLabel = normalizeString(record.label);
@@ -1251,7 +1345,10 @@
         event.target.value = record.homeAgeYears;
       }
 
-      if (CALCULATION_SOURCE_FIELD_KEYS.includes(fieldKey)) {
+      if (fieldKey === "typeKey" || fieldKey === "primaryResidenceArrangement") {
+        renderRows();
+        notifyChange();
+      } else if (CALCULATION_SOURCE_FIELD_KEYS.includes(fieldKey)) {
         updateCalculatedDisplaysForRow(row);
         notifyChange();
       }
@@ -1302,6 +1399,7 @@
     serializeHousingRecords,
     createHousingRecord,
     housingTypeOptions: HOUSING_TYPE_OPTIONS,
+    primaryResidenceArrangementOptions: PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS,
     fieldGroupsByType: FIELD_GROUPS_BY_TYPE
   };
 })(window);
