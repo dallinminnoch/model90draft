@@ -3045,6 +3045,10 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   min-width: 0;
 }
 
+.pmi-workflow-menu-group[data-pmi-workflow-menu-group="protectionPlanning"] {
+  margin-top: calc(clamp(0.18rem, 0.38dvh, 0.34rem) - clamp(0.52rem, 0.9dvh, 1rem));
+}
+
 .pmi-workflow-menu-group-title {
   display: flex;
   align-items: center;
@@ -3857,6 +3861,10 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-curre
 
   .pmi-workflow-menu-group {
     gap: 0.24rem;
+  }
+
+  .pmi-workflow-menu-group[data-pmi-workflow-menu-group="protectionPlanning"] {
+    margin-top: -0.28rem;
   }
 
   .pmi-workflow-menu-list {

@@ -39,6 +39,7 @@
     Object.freeze({
       key: "protectionPlanning",
       label: "Protection Planning",
+      showTitle: false,
       sectionKeys: Object.freeze([
         "existingCoverage",
         "survivorNeeds",
@@ -236,9 +237,12 @@
   }
 
   function renderWorkflowGroup(group) {
+    const titleMarkup = group.showTitle === false
+      ? ""
+      : `<div class="pmi-workflow-menu-group-title"><span>${escapeHtml(group.label)}</span></div>`;
     return `
       <section class="pmi-workflow-menu-group" data-pmi-workflow-menu-group="${escapeHtml(group.key)}">
-        <div class="pmi-workflow-menu-group-title"><span>${escapeHtml(group.label)}</span></div>
+        ${titleMarkup}
         <div class="pmi-workflow-menu-list">
           ${group.rows.map(renderWorkflowRow).join("")}
         </div>

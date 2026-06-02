@@ -59,6 +59,7 @@ assert.equal(model.insights.needsAttentionCount, 1);
 assert.equal(model.insights.notStartedCount, 7);
 assert.equal(model.groups[0].label, "Household Foundation");
 assert.equal(model.groups[1].label, "Protection Planning");
+assert.equal(model.groups[1].showTitle, false);
 assert.equal(model.rows.find((row) => row.key === "housing").active, true);
 
 const html = workflowMenu.renderPmiWorkflowMenu({
@@ -75,7 +76,6 @@ const html = workflowMenu.renderPmiWorkflowMenu({
   'Protection Modeling Inputs',
   'Workflow Progress',
   'Household Foundation',
-  'Protection Planning',
   'Workflow Insights',
   'data-pmi-workflow-menu-section="housing"',
   'data-pmi-workflow-menu-status="inProgress"',
@@ -140,6 +140,11 @@ assert.match(workflowMenuShellRule, /max-height:\s*calc\(100dvh - var\(--pmi-rai
 const workflowMenuItemRule = getCssRule(componentsCss, ".pmi-workflow-menu-item");
 assert.match(workflowMenuItemRule, /min-height:\s*clamp\(2\.12rem,\s*4\.35dvh,\s*3\.3rem\);/, "Workflow menu rows should autosize to fit shorter screens.");
 assert.match(workflowMenuItemRule, /padding:\s*clamp\(0\.32rem,\s*0\.68dvh,\s*0\.62rem\)/, "Workflow menu row padding should autosize to fit shorter screens.");
+assert.match(
+  componentsCss,
+  /\.pmi-workflow-menu-group\[data-pmi-workflow-menu-group="protectionPlanning"\]\s*{[\s\S]*margin-top:\s*calc\(clamp\(0\.18rem,\s*0\.38dvh,\s*0\.34rem\) - clamp\(0\.52rem,\s*0\.9dvh,\s*1rem\)\);/,
+  "Protection planning group should collapse the parent menu gap left by the removed divider."
+);
 
 [
   nextStepPage,
@@ -152,6 +157,8 @@ assert.match(nextStepPage, /data-pmi-workflow-menu-shell/, "PMI page should visi
 assert.match(nextStepPage, /pmi-workflow-menu-version="pmi-workflow-menu-shell-v1"/, "Mounted workflow menu should carry the shell version.");
 assert.match(nextStepPage, /data-pmi-workflow-menu-section="housing"/, "Mounted workflow menu should include the housing section.");
 assert.match(nextStepPage, /Add housing record/, "Mounted workflow menu should include the static housing next-up preview.");
+assert.doesNotMatch(nextStepPage, />Protection Planning</, "Mounted workflow menu should not render the Protection Planning divider.");
+assert.doesNotMatch(html, />Protection Planning</, "Rendered workflow menu should not render the Protection Planning divider.");
 assert.doesNotMatch(nextStepPage, /data-pmi-section-nav/, "Old visible scalar section nav should be replaced by the workflow shell.");
 assert.doesNotMatch(nextStepPage, /pmi-section-nav-link/, "Old visible section nav links should not remain in the page structure.");
 assert.doesNotMatch(confidentialInputsPage, /data-pmi-workflow-menu-shell/, "Confidential inputs page should not mount the PMI workflow shell.");
