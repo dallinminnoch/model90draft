@@ -3451,7 +3451,12 @@ body[data-page="next-step"] #pmi-income .pmi-reference-notice {
 }
 
 .pmi-cashflow-rail .pmi-expense-cashflow {
+  display: flex;
+  flex-direction: column;
   grid-column: auto;
+  box-sizing: border-box;
+  height: calc(100dvh - var(--pmi-rail-sticky-top) - 1.85rem);
+  max-height: calc(100dvh - var(--pmi-rail-sticky-top) - 1.85rem);
   overflow: hidden;
   padding: 0;
   border: 1px solid var(--m90-border-soft);
@@ -3504,12 +3509,15 @@ body[data-page="next-step"] #pmi-income .pmi-reference-notice {
 
 .pmi-cashflow-rail .pmi-expense-cashflow-visual {
   display: grid;
+  flex: 1 1 auto;
   justify-items: center;
-  padding: 14px 2px 4px;
+  align-content: center;
+  min-height: 0;
+  padding: clamp(0.35rem, 1.35dvh, 0.875rem) 2px clamp(0.25rem, 0.62dvh, 0.25rem);
 }
 
 .pmi-cashflow-rail .pmi-expense-cashflow-track {
-  width: min(340px, calc(100% - 24px));
+  width: min(340px, calc(100% - 24px), calc(100dvh - var(--pmi-rail-sticky-top) - 19.5rem));
   height: auto;
   aspect-ratio: 1;
   margin: 0;
