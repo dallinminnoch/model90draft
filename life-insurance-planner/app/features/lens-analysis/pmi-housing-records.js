@@ -14,7 +14,6 @@
     Object.freeze({ value: "primaryResidenceMortgage", label: "Primary Residence - Mortgage" }),
     Object.freeze({ value: "primaryResidenceRent", label: "Primary Residence - Rent" }),
     Object.freeze({ value: "primaryResidenceOwnedFreeAndClear", label: "Primary Residence - Owned Free and Clear" }),
-    Object.freeze({ value: "secondMortgageHeloc", label: "Second Mortgage / HELOC" }),
     Object.freeze({ value: "secondHomeVacationProperty", label: "Second Home / Vacation Property" }),
     Object.freeze({ value: "rentalInvestmentProperty", label: "Rental / Investment Property" }),
     Object.freeze({ value: "temporaryHousing", label: "Temporary Housing" }),
@@ -34,6 +33,14 @@
     Object.freeze({ value: "review", label: "Review" }),
     Object.freeze({ value: "yes", label: "Yes" }),
     Object.freeze({ value: "no", label: "No" })
+  ]);
+
+  const PROPERTY_SECURED_DEBT_TYPE_OPTIONS = Object.freeze([
+    Object.freeze({ value: "firstMortgage", label: "First Mortgage" }),
+    Object.freeze({ value: "secondMortgage", label: "Second Mortgage" }),
+    Object.freeze({ value: "heloc", label: "HELOC" }),
+    Object.freeze({ value: "homeEquityLoan", label: "Home Equity Loan" }),
+    Object.freeze({ value: "otherPropertySecuredDebt", label: "Other Property-Secured Debt" })
   ]);
 
   const HOME_SQUARE_FOOTAGE_OPTIONS = Object.freeze([
@@ -75,6 +82,56 @@
     "insuranceIncludedInPayment",
     "homeownersInsuranceIncludedInPayment",
     "hoaIncludedInPayment"
+  ]);
+
+  const REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES = Object.freeze([
+    "secondMortgageHeloc",
+    "secondMortgage",
+    "heloc",
+    "homeEquityLoan"
+  ]);
+
+  const PROPERTY_SECURED_DEBT_OWNER_TYPES = Object.freeze([
+    "primaryResidenceMortgage",
+    "primaryResidenceOwnedFreeAndClear",
+    "secondHomeVacationProperty",
+    "rentalInvestmentProperty",
+    "housingOperatingCostOnly"
+  ]);
+
+  const PROPERTY_SECURED_DEBT_FIELD_KEYS = Object.freeze([
+    "debtType",
+    "label",
+    "currentBalance",
+    "monthlyPayment",
+    "interestRatePercent",
+    "rateType",
+    "paymentType",
+    "remainingTermMonths",
+    "lienPosition",
+    "continuesAfterDeath",
+    "creditLimit",
+    "drawPeriodEndDate",
+    "interestOnlyDuringDrawPeriod",
+    "repaymentPeriodMonths",
+    "originalLoanAmount",
+    "originalTermMonths",
+    "balloonPaymentDate",
+    "balloonAmount"
+  ]);
+
+  const PROPERTY_SECURED_DEBT_HELOC_FIELDS = Object.freeze([
+    "creditLimit",
+    "drawPeriodEndDate",
+    "interestOnlyDuringDrawPeriod",
+    "repaymentPeriodMonths"
+  ]);
+
+  const PROPERTY_SECURED_DEBT_INSTALLMENT_FIELDS = Object.freeze([
+    "originalLoanAmount",
+    "originalTermMonths",
+    "balloonPaymentDate",
+    "balloonAmount"
   ]);
 
   const FIELD_DEFINITIONS = Object.freeze({
@@ -216,21 +273,6 @@
       "associatedMonthlyCosts",
       "calculatedMonthlyMortgagePayment"
     ]),
-    secondMortgageHeloc: Object.freeze([
-      "debtSubType",
-      "currentBalance",
-      "monthlyPayment",
-      "interestRatePercent",
-      "rateType",
-      "paymentType",
-      "remainingTermMonths",
-      "creditLimit",
-      "drawPeriodEndDate",
-      "interestOnlyDuringDrawPeriod",
-      "repaymentPeriodMonths",
-      "lienPosition",
-      "linkedPropertyLabel"
-    ]),
     secondHomeVacationProperty: Object.freeze([
       "propertyValue",
       "mortgageBalance",
@@ -354,6 +396,26 @@
     return HOUSING_TYPE_OPTIONS.find((option) => option.value === typeKey) || HOUSING_TYPE_OPTIONS[0];
   }
 
+  function getPropertySecuredDebtTypeConfig(debtType) {
+    return PROPERTY_SECURED_DEBT_TYPE_OPTIONS.find((option) => option.value === debtType)
+      || PROPERTY_SECURED_DEBT_TYPE_OPTIONS[0];
+  }
+
+  function normalizePropertySecuredDebtType(value) {
+    const normalizedValue = normalizeString(value);
+    if (normalizedValue === "secondMortgageHeloc") {
+      return "secondMortgage";
+    }
+    return getPropertySecuredDebtTypeConfig(normalizedValue).value;
+  }
+
+  function supportsPropertySecuredDebts(recordOrTypeKey) {
+    const typeKey = typeof recordOrTypeKey === "string"
+      ? getTypeConfig(recordOrTypeKey).value
+      : getTypeConfig(recordOrTypeKey?.typeKey).value;
+    return PROPERTY_SECURED_DEBT_OWNER_TYPES.includes(typeKey);
+  }
+
   function omitRemovedEscrowFields(record) {
     const source = record && typeof record === "object" ? record : {};
     const sanitized = { ...source };
@@ -361,6 +423,67 @@
       delete sanitized[fieldKey];
     });
     return sanitized;
+  }
+
+  function getStaleSecuredDebtNotes(source, debtType) {
+    const debtLabel = getPropertySecuredDebtTypeConfig(debtType).label;
+    const noteParts = [
+      `Converted from old top-level ${debtLabel} housing record.`
+    ];
+    [
+      ["Current balance", source.currentBalance],
+      ["Monthly payment", source.monthlyPayment],
+      ["Interest rate", source.interestRatePercent],
+      ["Rate type", source.rateType],
+      ["Payment type", source.paymentType],
+      ["Remaining term", source.remainingTermMonths],
+      ["Credit limit", source.creditLimit],
+      ["Draw period end date", source.drawPeriodEndDate],
+      ["Repayment period", source.repaymentPeriodMonths],
+      ["Lien position", source.lienPosition],
+      ["Linked property", source.linkedPropertyLabel]
+    ].forEach(([label, value]) => {
+      const normalizedValue = normalizeString(value);
+      if (normalizedValue) {
+        noteParts.push(`${label}: ${normalizedValue}`);
+      }
+    });
+    return noteParts.join(" ");
+  }
+
+  function migrateRemovedTopLevelSecuredDebtRecord(record) {
+    const source = record && typeof record === "object" ? record : {};
+    if (!REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES.includes(normalizeString(source.typeKey))) {
+      return source;
+    }
+
+    const debtType = normalizePropertySecuredDebtType(source.debtSubType || source.typeKey);
+    const debtLabel = getPropertySecuredDebtTypeConfig(debtType).label;
+    const existingNotes = normalizeString(source.notes);
+    return {
+      ...source,
+      typeKey: "otherHousingObligation",
+      label: normalizeString(source.label) || debtLabel,
+      monthlyCost: source.monthlyCost || source.monthlyPayment || "",
+      notes: [existingNotes, getStaleSecuredDebtNotes(source, debtType)].filter(Boolean).join(" ")
+    };
+  }
+
+  function createPropertySecuredDebt(partialDebt) {
+    const source = partialDebt && typeof partialDebt === "object" ? partialDebt : {};
+    const debtType = normalizePropertySecuredDebtType(source.debtType || source.debtSubType);
+    const typeLabel = getPropertySecuredDebtTypeConfig(debtType).label;
+    const securedDebtId = normalizeString(source.securedDebtId)
+      || `property-secured-debt-${Date.now().toString(36)}-${++generatedHousingRecordCounter}`;
+    const label = normalizeString(source.label) || typeLabel;
+
+    return {
+      ...source,
+      securedDebtId,
+      debtType,
+      label,
+      continuesAfterDeath: normalizeString(source.continuesAfterDeath) || "review"
+    };
   }
 
   function getHousingStatusForRecord(record) {
@@ -457,11 +580,14 @@
   }
 
   function createHousingRecord(partialRecord) {
-    const source = omitRemovedEscrowFields(partialRecord);
+    const source = migrateRemovedTopLevelSecuredDebtRecord(omitRemovedEscrowFields(partialRecord));
     const typeKey = getTypeConfig(source.typeKey).value;
     const label = normalizeString(source.label) || getTypeConfig(typeKey).label;
     const housingRecordId = normalizeString(source.housingRecordId)
       || `housing-record-${Date.now().toString(36)}-${++generatedHousingRecordCounter}`;
+    const propertySecuredDebts = supportsPropertySecuredDebts(typeKey) && Array.isArray(source.propertySecuredDebts)
+      ? source.propertySecuredDebts.map(createPropertySecuredDebt)
+      : [];
 
     return {
       housingRecordId,
@@ -472,7 +598,24 @@
       ...source,
       housingRecordId,
       typeKey,
-      label
+      label,
+      propertySecuredDebts
+    };
+  }
+
+  function serializeHousingRecord(record) {
+    const sanitizedRecord = omitRemovedEscrowFields(record);
+    const typeKey = getTypeConfig(sanitizedRecord.typeKey).value;
+    if (!supportsPropertySecuredDebts(typeKey)) {
+      const { propertySecuredDebts, ...recordWithoutSecuredDebts } = sanitizedRecord;
+      return recordWithoutSecuredDebts;
+    }
+
+    return {
+      ...sanitizedRecord,
+      propertySecuredDebts: Array.isArray(sanitizedRecord.propertySecuredDebts)
+        ? sanitizedRecord.propertySecuredDebts.map(createPropertySecuredDebt)
+        : []
     };
   }
 
@@ -497,13 +640,8 @@
     }
 
     const typeKey = getTypeConfig(record?.typeKey).value;
-    if (typeKey === "secondMortgageHeloc" && normalizeString(record?.debtSubType) === "heloc") {
-      return "Monthly Payment";
-    }
-
     if (
       typeKey === "primaryResidenceMortgage"
-      || typeKey === "secondMortgageHeloc"
       || typeKey === "secondHomeVacationProperty"
       || typeKey === "rentalInvestmentProperty"
     ) {
@@ -587,6 +725,135 @@
     `;
   }
 
+  function renderPropertySecuredDebtInput(debt, fieldKey, config) {
+    const value = normalizeString(debt[fieldKey]);
+    const commonAttributes = `data-pmi-property-secured-debt-input="${escapeHtml(fieldKey)}"`;
+
+    if (config.type === "select") {
+      return `<select ${commonAttributes}>${renderOptions(config.options, value)}</select>`;
+    }
+
+    if (config.type === "date") {
+      return `<input ${commonAttributes} type="date" value="${escapeHtml(value)}">`;
+    }
+
+    const step = config.step ? ` step="${escapeHtml(config.step)}"` : "";
+    const min = config.type === "number" ? ' min="0"' : "";
+    const placeholder = config.placeholder ? ` placeholder="${escapeHtml(config.placeholder)}"` : "";
+    const control = `<input ${commonAttributes} type="${config.type === "number" ? "number" : "text"}" value="${escapeHtml(value)}"${min}${step}${placeholder}>`;
+
+    if (!config.suffix) {
+      return control;
+    }
+
+    return `
+      <div class="profile-currency-field pmi-housing-record-input-shell">
+        ${control}
+        <span class="profile-currency-suffix">${escapeHtml(config.suffix)}</span>
+      </div>
+    `;
+  }
+
+  function getPropertySecuredDebtFieldConfig(fieldKey) {
+    const fieldConfigs = {
+      debtType: { label: "Debt Type", type: "select", options: PROPERTY_SECURED_DEBT_TYPE_OPTIONS },
+      label: { label: "Label", type: "text", placeholder: "Property-secured debt" },
+      currentBalance: { label: "Current Balance", type: "number", step: "1000", suffix: "USD" },
+      monthlyPayment: { label: "Monthly Payment", type: "number", step: "50", suffix: "USD" },
+      interestRatePercent: { label: "Interest Rate", type: "number", step: "0.01", suffix: "%" },
+      rateType: FIELD_DEFINITIONS.rateType,
+      paymentType: FIELD_DEFINITIONS.paymentType,
+      remainingTermMonths: { label: "Remaining Term", type: "number", step: "1", suffix: "Months" },
+      lienPosition: FIELD_DEFINITIONS.lienPosition,
+      continuesAfterDeath: { label: "Continues After Death?", type: "select", options: CONTINUES_AFTER_DEATH_OPTIONS },
+      creditLimit: { label: "Credit Limit", type: "number", step: "1000", suffix: "USD" },
+      drawPeriodEndDate: { label: "Draw Period End Date", type: "date" },
+      interestOnlyDuringDrawPeriod: {
+        label: "Interest-Only During Draw Period",
+        type: "select",
+        options: FIELD_DEFINITIONS.interestOnlyDuringDrawPeriod.options
+      },
+      repaymentPeriodMonths: { label: "Repayment Period", type: "number", step: "1", suffix: "Months" },
+      originalLoanAmount: { label: "Original Loan Amount", type: "number", step: "1000", suffix: "USD" },
+      originalTermMonths: { label: "Original Term", type: "number", step: "1", suffix: "Months" },
+      balloonPaymentDate: { label: "Balloon Payment Date", type: "date" },
+      balloonAmount: { label: "Balloon Amount", type: "number", step: "1000", suffix: "USD" }
+    };
+    return fieldConfigs[fieldKey];
+  }
+
+  function shouldShowPropertySecuredDebtField(fieldKey, debt) {
+    const debtType = normalizePropertySecuredDebtType(debt?.debtType);
+    if (PROPERTY_SECURED_DEBT_HELOC_FIELDS.includes(fieldKey)) {
+      return debtType === "heloc";
+    }
+    if (PROPERTY_SECURED_DEBT_INSTALLMENT_FIELDS.includes(fieldKey)) {
+      return debtType === "secondMortgage" || debtType === "homeEquityLoan";
+    }
+    return true;
+  }
+
+  function renderPropertySecuredDebtField(fieldKey, debt) {
+    if (!shouldShowPropertySecuredDebtField(fieldKey, debt)) {
+      return "";
+    }
+
+    const config = getPropertySecuredDebtFieldConfig(fieldKey);
+    if (!config) {
+      return "";
+    }
+
+    return `
+      <label class="pmi-housing-record-field pmi-property-secured-debt-field">
+        <span>${escapeHtml(config.label)}</span>
+        ${renderPropertySecuredDebtInput(debt, fieldKey, config)}
+      </label>
+    `;
+  }
+
+  function renderPropertySecuredDebtItem(debt, debtIndex) {
+    const safeDebt = createPropertySecuredDebt(debt);
+    const debtLabel = safeDebt.label || getPropertySecuredDebtTypeConfig(safeDebt.debtType).label;
+    return `
+      <article class="pmi-property-secured-debt-card" data-pmi-property-secured-debt-entry data-secured-debt-id="${escapeHtml(safeDebt.securedDebtId)}">
+        <div class="pmi-property-secured-debt-card-header">
+          <div>
+            <span class="pmi-housing-record-index">Debt ${debtIndex + 1}</span>
+            <h4>${escapeHtml(debtLabel)}</h4>
+          </div>
+          <button class="pmi-housing-record-remove" type="button" data-pmi-property-secured-debt-remove aria-label="Remove property-secured debt">Remove</button>
+        </div>
+        <div class="pmi-housing-record-fields pmi-property-secured-debt-fields">
+          ${PROPERTY_SECURED_DEBT_FIELD_KEYS.map((fieldKey) => renderPropertySecuredDebtField(fieldKey, safeDebt)).join("")}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderPropertySecuredDebtSection(record) {
+    if (!supportsPropertySecuredDebts(record)) {
+      return "";
+    }
+
+    const debts = Array.isArray(record.propertySecuredDebts)
+      ? record.propertySecuredDebts.map(createPropertySecuredDebt)
+      : [];
+    return `
+      <section class="pmi-property-secured-debts-section" data-pmi-property-secured-debts-section>
+        <div class="pmi-property-secured-debts-header">
+          <div>
+            <span class="pmi-housing-records-kicker">Property-Secured Debts</span>
+            <h4>Property-Secured Debts</h4>
+          </div>
+          <button class="pmi-housing-records-add-button" type="button" data-pmi-property-secured-debt-add>Add Secured Debt</button>
+        </div>
+        <div class="pmi-property-secured-debts-list" data-pmi-property-secured-debts-list>
+          ${debts.length ? debts.map(renderPropertySecuredDebtItem).join("") : '<p class="pmi-housing-records-empty">Add a property-secured debt when applicable.</p>'}
+        </div>
+      </section>
+    `;
+  }
+
   function renderRecord(record, index) {
     const typeFields = FIELD_GROUPS_BY_TYPE[record.typeKey] || FIELD_GROUPS_BY_TYPE.primaryResidenceMortgage;
     const typeLabel = getTypeConfig(record.typeKey).label;
@@ -606,6 +873,7 @@
         <div class="pmi-housing-record-fields pmi-housing-record-fields--type">
           ${typeFields.map((fieldKey) => renderField(fieldKey, record, record.typeKey)).join("")}
         </div>
+        ${renderPropertySecuredDebtSection(record)}
       </article>
     `;
   }
@@ -672,6 +940,28 @@
       });
       record.typeKey = getTypeConfig(record.typeKey).value;
       record.label = normalizeString(record.label) || getTypeConfig(record.typeKey).label;
+      syncPropertySecuredDebtsFromRow(row, record);
+      if (!supportsPropertySecuredDebts(record)) {
+        record.propertySecuredDebts = [];
+      }
+    }
+
+    function syncPropertySecuredDebtsFromRow(row, record) {
+      if (!row || !record || !supportsPropertySecuredDebts(record)) {
+        return;
+      }
+
+      record.propertySecuredDebts = Array.from(row.querySelectorAll("[data-pmi-property-secured-debt-entry]"))
+        .map((debtRow) => {
+          const debt = {
+            securedDebtId: normalizeString(debtRow.getAttribute("data-secured-debt-id"))
+          };
+          debtRow.querySelectorAll("[data-pmi-property-secured-debt-input]").forEach((field) => {
+            const fieldKey = field.getAttribute("data-pmi-property-secured-debt-input");
+            debt[fieldKey] = field.value;
+          });
+          return createPropertySecuredDebt(debt);
+        });
     }
 
     function syncRecordsFromDom() {
@@ -803,7 +1093,7 @@
 
     function serializeHousingRecords() {
       syncRecordsFromDom();
-      return controller.records.map(omitRemovedEscrowFields);
+      return controller.records.map(serializeHousingRecord);
     }
 
     controller.hydrateHousingRecords = hydrateHousingRecords;
@@ -812,6 +1102,36 @@
 
     controller.addButton?.addEventListener("click", () => addHousingRecord({}));
     controller.list?.addEventListener("click", (event) => {
+      const securedDebtAddButton = event.target.closest("[data-pmi-property-secured-debt-add]");
+      if (securedDebtAddButton) {
+        const row = securedDebtAddButton.closest("[data-pmi-housing-record-entry]");
+        const recordId = row?.getAttribute("data-housing-record-id");
+        const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+        if (record && supportsPropertySecuredDebts(record)) {
+          syncRecordFromRow(row);
+          record.propertySecuredDebts = Array.isArray(record.propertySecuredDebts) ? record.propertySecuredDebts : [];
+          record.propertySecuredDebts.push(createPropertySecuredDebt({}));
+          renderRows();
+          notifyChange();
+        }
+        return;
+      }
+
+      const securedDebtRemoveButton = event.target.closest("[data-pmi-property-secured-debt-remove]");
+      if (securedDebtRemoveButton) {
+        const row = securedDebtRemoveButton.closest("[data-pmi-housing-record-entry]");
+        const debtRow = securedDebtRemoveButton.closest("[data-pmi-property-secured-debt-entry]");
+        const recordId = row?.getAttribute("data-housing-record-id");
+        const securedDebtId = debtRow?.getAttribute("data-secured-debt-id");
+        const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+        if (record) {
+          record.propertySecuredDebts = (record.propertySecuredDebts || []).filter((debt) => debt.securedDebtId !== securedDebtId);
+          renderRows();
+          notifyChange();
+        }
+        return;
+      }
+
       const calculatedActionButton = event.target.closest("[data-pmi-housing-record-calculated-action]");
       if (calculatedActionButton) {
         const row = calculatedActionButton.closest("[data-pmi-housing-record-entry]");
@@ -843,6 +1163,20 @@
         return;
       }
 
+      const securedDebtFieldKey = event.target.getAttribute("data-pmi-property-secured-debt-input");
+      if (securedDebtFieldKey) {
+        const recordId = row.getAttribute("data-housing-record-id");
+        const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+        if (record) {
+          syncPropertySecuredDebtsFromRow(row, record);
+          if (securedDebtFieldKey === "debtType") {
+            renderRows();
+          }
+          notifyChange();
+        }
+        return;
+      }
+
       const fieldKey = event.target.getAttribute("data-pmi-housing-record-input");
       const recordId = row.getAttribute("data-housing-record-id");
       const record = controller.records.find((entry) => entry.housingRecordId === recordId);
@@ -866,6 +1200,20 @@
     controller.list?.addEventListener("change", (event) => {
       const row = event.target.closest("[data-pmi-housing-record-entry]");
       if (!row) {
+        return;
+      }
+
+      const securedDebtFieldKey = event.target.getAttribute("data-pmi-property-secured-debt-input");
+      if (securedDebtFieldKey) {
+        const recordId = row.getAttribute("data-housing-record-id");
+        const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+        if (record) {
+          syncPropertySecuredDebtsFromRow(row, record);
+          if (securedDebtFieldKey === "debtType") {
+            renderRows();
+          }
+          notifyChange();
+        }
         return;
       }
 

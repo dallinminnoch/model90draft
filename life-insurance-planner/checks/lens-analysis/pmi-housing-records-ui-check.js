@@ -41,7 +41,6 @@ const requiredTypeKeys = [
   "primaryResidenceMortgage",
   "primaryResidenceRent",
   "primaryResidenceOwnedFreeAndClear",
-  "secondMortgageHeloc",
   "secondHomeVacationProperty",
   "rentalInvestmentProperty",
   "temporaryHousing",
@@ -73,6 +72,8 @@ const requiredFieldKeys = [
   "monthlyMortgagePaymentOnly",
   "associatedMonthlyCosts",
   "calculatedMonthlyMortgagePayment",
+  "propertySecuredDebts",
+  "debtType",
   "debtSubType",
   "rateType",
   "paymentType",
@@ -80,6 +81,10 @@ const requiredFieldKeys = [
   "drawPeriodEndDate",
   "interestOnlyDuringDrawPeriod",
   "repaymentPeriodMonths",
+  "originalLoanAmount",
+  "originalTermMonths",
+  "balloonPaymentDate",
+  "balloonAmount",
   "lienPosition",
   "linkedPropertyLabel",
   "grossMonthlyRentReceived",
@@ -107,9 +112,15 @@ assert(moduleSource.includes("data-pmi-housing-record-add"), "Housing Records ad
 assert(moduleSource.includes("data-pmi-housing-record-remove"), "Housing Records remove control is missing.");
 assert(moduleSource.includes("data-pmi-housing-record-input"), "Housing Records editable fields are missing.");
 assert(moduleSource.includes("FIELD_GROUPS_BY_TYPE"), "Housing Records type-specific field map is missing.");
-assert(moduleSource.includes("showForDebtSubType"), "HELOC-only field visibility metadata is missing.");
-assert(moduleSource.includes('showForDebtSubType: "heloc"'), "HELOC-only fields are not guarded by debt subtype.");
 assert(moduleSource.includes("shouldShowField"), "Housing Records field visibility helper is missing.");
+assert(moduleSource.includes("PROPERTY_SECURED_DEBT_TYPE_OPTIONS"), "Property-secured debt type options are missing.");
+assert(moduleSource.includes("PROPERTY_SECURED_DEBT_OWNER_TYPES"), "Property-secured debt owner type list is missing.");
+assert(moduleSource.includes("renderPropertySecuredDebtSection"), "Property-secured debt section renderer is missing.");
+assert(moduleSource.includes("data-pmi-property-secured-debt-add"), "Property-secured debt add control is missing.");
+assert(moduleSource.includes("data-pmi-property-secured-debt-remove"), "Property-secured debt remove control is missing.");
+assert(moduleSource.includes("data-pmi-property-secured-debt-input"), "Property-secured debt editable fields are missing.");
+assert(moduleSource.includes("shouldShowPropertySecuredDebtField"), "Property-secured debt field visibility helper is missing.");
+assert(moduleSource.includes('debtType === "heloc"'), "HELOC-only property-secured debt fields are not guarded by debt type.");
 assert(moduleSource.includes("serializeHousingRecords"), "Housing Records serialize API is missing.");
 assert(moduleSource.includes("hydrateHousingRecords"), "Housing Records hydrate API is missing.");
 assert(moduleSource.includes("Non-goals: no normalization"), "Housing Records module does not document calculation-neutral ownership.");
@@ -121,7 +132,8 @@ assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), 
 assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
 assert(moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Removed escrow field sanitizer is missing.");
 assert(moduleSource.includes("omitRemovedEscrowFields"), "Escrow field omission helper is missing.");
-assert(moduleSource.includes("controller.records.map(omitRemovedEscrowFields)"), "Housing Records serialization does not omit removed escrow fields.");
+assert(moduleSource.includes("controller.records.map(serializeHousingRecord)"), "Housing Records serialization does not use the safe record serializer.");
+assert(/function serializeHousingRecord[\s\S]*omitRemovedEscrowFields/.test(moduleSource), "Housing Records serialization does not omit removed escrow fields.");
 assert(!/escrowStatus:\s*Object\.freeze/.test(moduleSource), "Escrow status field definition should not be rendered.");
 assert(!moduleSource.includes('"escrowStatus"') || moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Escrow status should only appear in the removed-field sanitizer.");
 assert(!moduleSource.includes('label: "Escrow Status"'), "Escrow Status label should not remain visible.");
@@ -131,6 +143,51 @@ assert(!moduleSource.includes("Costs Included"), "Costs-included payment label s
 assert(!moduleSource.includes("Included in Payment"), "Included-in-payment label should not remain visible.");
 assert(moduleSource.includes("Principal & Interest Payment"), "Mortgage payment label should use principal-and-interest wording.");
 assert(moduleSource.includes("Calculated Principal & Interest Payment"), "Calculated mortgage payment display should use principal-and-interest wording.");
+assert(moduleSource.includes("REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES"), "Removed top-level secured-debt type migration list is missing.");
+assert(moduleSource.includes("migrateRemovedTopLevelSecuredDebtRecord"), "Removed top-level secured-debt migration helper is missing.");
+assert(moduleSource.includes("serializeHousingRecord"), "Housing Records serialization wrapper is missing.");
+
+const housingTypeOptionsMatch = moduleSource.match(/const HOUSING_TYPE_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert(housingTypeOptionsMatch, "Could not inspect top-level Housing Record type options.");
+[
+  "secondMortgageHeloc",
+  "Second Mortgage / HELOC",
+  'value: "secondMortgage"',
+  'value: "heloc"',
+  'value: "homeEquityLoan"'
+].forEach((forbiddenOption) => {
+  assert(
+    !housingTypeOptionsMatch[1].includes(forbiddenOption),
+    `Top-level Housing Record type picker still includes ${forbiddenOption}.`
+  );
+});
+
+const fieldGroupsMatch = moduleSource.match(/const FIELD_GROUPS_BY_TYPE = Object\.freeze\(\{([\s\S]*?)\n  \}\);/);
+assert(fieldGroupsMatch, "Could not inspect top-level Housing Record field groups.");
+assert(!fieldGroupsMatch[1].includes("secondMortgageHeloc:"), "Removed secondMortgageHeloc field group should not remain.");
+
+[
+  "firstMortgage",
+  "secondMortgage",
+  "heloc",
+  "homeEquityLoan",
+  "otherPropertySecuredDebt"
+].forEach((debtType) => {
+  assert(moduleSource.includes(`value: "${debtType}"`), `Property-secured debt type ${debtType} is missing.`);
+});
+
+[
+  "primaryResidenceMortgage",
+  "primaryResidenceOwnedFreeAndClear",
+  "secondHomeVacationProperty",
+  "rentalInvestmentProperty",
+  "housingOperatingCostOnly"
+].forEach((typeKey) => {
+  assert(moduleSource.includes(`"${typeKey}"`), `Property-secured debt owner type ${typeKey} is missing.`);
+});
+const propertySecuredDebtOwnerTypesMatch = moduleSource.match(/const PROPERTY_SECURED_DEBT_OWNER_TYPES = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert(propertySecuredDebtOwnerTypesMatch, "Could not inspect property-secured debt owner types.");
+assert(!propertySecuredDebtOwnerTypesMatch[1].includes('"primaryResidenceRent"'), "Rent records should not show property-secured debt sections.");
 
 requiredTypeKeys.forEach((typeKey) => {
   assert(moduleSource.includes(typeKey), `Housing record type ${typeKey} is missing.`);
@@ -228,15 +285,6 @@ assertTypeIncludes("primaryResidenceOwnedFreeAndClear", [
     "hoaIncludedInPayment"
   ]);
 });
-assertTypeExcludes("secondMortgageHeloc", [
-  "escrowStatus",
-  "costsIncludedInPayment",
-  "propertyTaxIncludedInPayment",
-  "insuranceIncludedInPayment",
-  "homeownersInsuranceIncludedInPayment",
-  "hoaIncludedInPayment"
-]);
-
 [
   "homeSquareFootage",
   "homeAgeYears",
@@ -267,6 +315,8 @@ assertTypeExcludes("secondMortgageHeloc", [
 assert(componentsSource.includes(".pmi-housing-records-shell"), "Housing Records component shell CSS is missing.");
 assert(componentsSource.includes(".pmi-housing-record-card"), "Housing Records card CSS is missing.");
 assert(componentsSource.includes(".pmi-housing-record-calculated-shell"), "Housing Records calculated display CSS is missing.");
+assert(componentsSource.includes(".pmi-property-secured-debts-section"), "Property-secured debt section CSS is missing.");
+assert(componentsSource.includes(".pmi-property-secured-debt-card"), "Property-secured debt card CSS is missing.");
 assert(
   componentsSource.includes("[data-pmi-scalar-housing-fields][hidden]"),
   "Hidden scalar housing fields need an explicit display guard against .form-grid."
