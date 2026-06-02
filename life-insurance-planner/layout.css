@@ -2044,6 +2044,10 @@ body[data-page="protection-modeling-linked"].lens-workflow-page .entry-page-view
     padding-bottom: var(--app-side-nav-screen-gap);
     box-sizing: border-box;
   }
+
+  body[data-page="next-step"].lens-page .prospect-stage {
+    padding-bottom: 0;
+  }
 }
 
 @media (max-width: 1120px) {

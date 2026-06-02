@@ -84,15 +84,22 @@
         <div class="prospect-panel-header">
           <div class="pmi-file-header" data-pmi-file-header>
             <div class="pmi-file-field pmi-file-field--name" data-pmi-file-field="name">
-              <span class="pmi-linked-person-badge" data-pmi-linked-person-name hidden></span>
+              <span class="pmi-file-avatar" data-pmi-linked-person-initials hidden></span>
+              <span class="pmi-file-client-copy">
+                <span class="pmi-linked-person-badge" data-pmi-linked-person-name hidden></span>
+                <span class="pmi-linked-profile-row">
+                  <span>Linked client profile</span>
+                  <span class="pmi-linked-status-chip">Linked</span>
+                </span>
+              </span>
             </div>
-            <div class="pmi-file-field" data-pmi-file-field="case-ref">
+            <div class="pmi-file-field pmi-file-field--meta pmi-file-field--case" data-pmi-file-field="case-ref" data-pmi-label="Client ID">
               <span class="pmi-file-value" data-pmi-linked-case-ref></span>
             </div>
-            <div class="pmi-file-field" data-pmi-file-field="household">
+            <div class="pmi-file-field pmi-file-field--meta pmi-file-field--household" data-pmi-file-field="household" data-pmi-label="Household">
               <span class="pmi-file-value" data-pmi-linked-household></span>
             </div>
-            <div class="pmi-file-field" data-pmi-file-field="date-of-birth">
+            <div class="pmi-file-field pmi-file-field--meta pmi-file-field--linked" data-pmi-file-field="date-of-birth" data-pmi-label="Linked">
               <span class="pmi-file-value" data-pmi-linked-date-of-birth></span>
             </div>
           </div>
@@ -1743,6 +1750,7 @@
       const primaryNetIncomeAction = form.querySelector('[data-net-income-action="primary"]');
       const spouseNetIncomeAction = form.querySelector('[data-net-income-action="spouse"]');
       const linkedPersonNameElement = document.querySelector("[data-pmi-linked-person-name]");
+      const linkedPersonInitialsElement = document.querySelector("[data-pmi-linked-person-initials]");
       const linkedCaseRefElement = document.querySelector("[data-pmi-linked-case-ref]");
       const linkedHouseholdElement = document.querySelector("[data-pmi-linked-household]");
       const linkedDateOfBirthElement = document.querySelector("[data-pmi-linked-date-of-birth]");
@@ -2019,15 +2027,31 @@
         element.textContent = normalizedValue || "—";
       }
 
+      function getLinkedHeaderInitials(name) {
+        return String(name || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part.charAt(0).toUpperCase())
+          .join("");
+      }
+
       function syncLinkedPersonNameBadge() {
         const linkedRecord = getLinkedRecord();
 
         const displayName = getLinkedPersonDisplayName();
         const normalizedName = displayName.toUpperCase();
+        const initials = getLinkedHeaderInitials(displayName);
         if (linkedPersonNameElement) {
           linkedPersonNameElement.textContent = normalizedName;
           linkedPersonNameElement.hidden = !normalizedName;
           linkedPersonNameElement.title = normalizedName;
+        }
+        if (linkedPersonInitialsElement) {
+          linkedPersonInitialsElement.textContent = initials;
+          linkedPersonInitialsElement.hidden = !initials;
+          linkedPersonInitialsElement.title = normalizedName;
         }
 
         setLinkedHeaderText(linkedCaseRefElement, linkedRecord?.caseRef || resolvedLinkedCaseRef);

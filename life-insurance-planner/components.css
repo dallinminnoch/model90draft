@@ -2746,19 +2746,30 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 
 body[data-page="next-step"] .lens-workflow-pane {
   padding: 0;
-  overflow: auto;
-  background: var(--m90-surface);
+  overflow: hidden;
+  border-radius: 0.65rem;
+  background: var(--m90-surface-secondary);
+}
+
+body[data-page="next-step"] .lens-workflow-stage {
+  background: var(--m90-surface-secondary);
 }
 
 body[data-page="next-step"] .prospect-empty-panel {
   --pmi-content-inline-pad: clamp(1rem, 1.8vw, 1.4rem);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
+  height: 100%;
+  min-height: 0;
   justify-self: stretch;
-  gap: 0;
-  padding: 0 var(--pmi-content-inline-pad) clamp(1rem, 1.8vw, 1.4rem);
+  align-content: stretch;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 0 var(--pmi-content-inline-pad) 0;
   border: 0;
-  border-radius: 0;
-  background: transparent;
+  border-radius: 0.65rem;
+  background: var(--m90-surface-secondary);
   box-shadow: none;
 }
 
@@ -2768,93 +2779,191 @@ body[data-page="next-step"] .prospect-panel-header {
   z-index: 90;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.7rem;
+  gap: 0.9rem;
   align-items: center;
-  width: auto;
-  margin-inline: calc(var(--pmi-content-inline-pad) * -1);
-  padding: 0.38rem 0.75rem;
+  margin: clamp(0.55rem, 0.9vw, 0.75rem) 0 0;
+  padding: 0.54rem 0.68rem;
   border: 1px solid var(--m90-border-soft);
-  border-radius: 0;
+  border-radius: 0.65rem;
   background: var(--m90-surface);
-  box-shadow: var(--m90-shadow);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--m90-text-primary) 7%, transparent);
 }
 
 body[data-page="next-step"] .prospect-panel-header .confidential-calculator-toggle {
   position: static;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 2.55rem;
+  height: 2.55rem;
+  border: 1px solid var(--m90-border-soft);
+  border-radius: 0.42rem;
+  background: var(--m90-surface-elevated);
+  color: var(--m90-text-primary);
+  box-shadow: none;
 }
 
+body[data-page="next-step"] .prospect-panel-header .confidential-calculator-icon,
 body[data-page="next-step"] .prospect-panel-header .confidential-calculator-toggle svg {
-  width: 1.58rem;
-  height: 1.58rem;
+  display: block;
+  width: 1.62rem;
+  height: 1.62rem;
 }
 
 .pmi-file-header {
   display: grid;
-  grid-template-columns: minmax(22rem, 1fr) minmax(8rem, 0.34fr) minmax(10rem, 0.44fr) minmax(9rem, 0.36fr);
-  gap: clamp(0.65rem, 1.4vw, 1.45rem);
-  align-items: center;
-  font-family: "DM Mono", "Consolas", monospace;
+  grid-template-columns: minmax(16rem, 1.28fr) minmax(8rem, 0.58fr) minmax(10rem, 0.74fr) minmax(8rem, 0.54fr);
+  align-items: stretch;
   min-width: 0;
+  font-family: "Inter", sans-serif;
 }
 
 .pmi-file-field {
-  display: flex;
-  align-items: center;
+  position: relative;
   min-width: 0;
 }
 
-.pmi-file-field[data-pmi-file-field="case-ref"],
-.pmi-file-field[data-pmi-file-field="household"] {
-  justify-content: center;
+.pmi-file-field--name {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  padding: 0 1.25rem 0 0.08rem;
 }
 
-.pmi-file-field[data-pmi-file-field="date-of-birth"] {
-  justify-content: flex-end;
-  text-align: right;
+.pmi-file-avatar {
+  display: inline-flex;
+  width: 2.72rem;
+  height: 2.72rem;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--m90-focus-ring);
+  border-radius: 999px;
+  background: var(--m90-accent);
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  font-size: 0.84rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.pmi-file-avatar[hidden] {
+  display: none;
+}
+
+.pmi-file-client-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.28rem;
+}
+
+.pmi-linked-profile-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--m90-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.pmi-linked-status-chip {
+  display: inline-flex;
+  min-height: 1.05rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--m90-stable) 28%, transparent);
+  border-radius: 0.24rem;
+  background: var(--m90-stable-soft);
+  color: var(--m90-stable);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pmi-file-field--meta {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 0.72rem;
+  min-height: 2.9rem;
+  padding: 0 1.05rem 0 clamp(0.9rem, 1.35vw, 1.3rem);
+  border-left: 1px solid var(--m90-border-soft);
+}
+
+.pmi-file-field--meta::before {
+  content: "";
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background-color: var(--m90-accent-soft);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 1rem 1rem;
+  color: var(--m90-accent);
+  -webkit-mask: none;
+  mask: none;
+}
+
+.pmi-file-field--meta::after {
+  content: attr(data-pmi-label);
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--m90-text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.pmi-file-field--case::before {
+  background-image: url("Images/clientdirectory.svg");
+}
+
+.pmi-file-field--household::before {
+  background-image: url("Images/home.svg");
+}
+
+.pmi-file-field--linked::before {
+  background-image: url("Images/calendar-reserve.svg");
 }
 
 .pmi-file-value {
-  display: flex;
+  grid-column: 2;
+  grid-row: 2;
+  display: block;
   min-height: 1.05rem;
-  align-items: center;
   overflow: hidden;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--m90-text-primary);
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-family: "DM Mono", "Consolas", monospace;
+  font-size: 0.86rem;
+  font-weight: 700;
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 1.25;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.pmi-file-field[data-pmi-file-field="case-ref"] .pmi-file-value,
-.pmi-file-field[data-pmi-file-field="household"] .pmi-file-value {
-  justify-content: center;
-  text-align: center;
-}
-
-.pmi-file-field[data-pmi-file-field="date-of-birth"] .pmi-file-value {
-  justify-content: flex-end;
-  text-align: right;
-}
-
 .pmi-linked-person-badge {
-  display: flex;
+  display: block;
   min-width: 0;
-  align-items: center;
   overflow: hidden;
   color: var(--m90-text-primary);
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 780;
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 1.1;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
@@ -2868,12 +2977,16 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   --pmi-rail-sticky-top: calc(var(--workspace-topbar-height, 3.1rem) + 3.35rem);
   --pmi-rail-sticky-align-offset: 20px;
   --pmi-rail-sticky-effective-top: calc(var(--pmi-rail-sticky-top) - var(--pmi-rail-sticky-align-offset));
+  --pmi-section-card-min-height: calc(100dvh - var(--workspace-topbar-height, 2.2rem) - 6.2rem);
   display: grid;
   grid-template-columns: minmax(16rem, 17.5rem) minmax(0, 1fr) minmax(16.8rem, 18.5rem);
   gap: clamp(1.3rem, 2.1vw, 2rem);
-  align-items: start;
+  align-items: stretch;
   width: 100%;
-  margin-top: 1rem;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 0;
 }
 
 .pmi-section-nav,
@@ -2882,6 +2995,18 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   position: sticky;
   top: var(--pmi-rail-sticky-effective-top);
   align-self: start;
+}
+
+body[data-page="next-step"] .pmi-workflow-menu {
+  position: static;
+  top: auto;
+  align-self: stretch;
+}
+
+body[data-page="next-step"] .pmi-cashflow-rail {
+  position: relative;
+  top: auto;
+  align-self: stretch;
 }
 
 .pmi-section-nav {
@@ -2972,8 +3097,8 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   display: grid;
   width: min(100%, 17.5rem);
   gap: clamp(0.52rem, 0.9dvh, 1rem);
-  height: calc(100dvh - var(--pmi-rail-sticky-top) - 1.85rem);
-  max-height: calc(100dvh - var(--pmi-rail-sticky-top) - 1.85rem);
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
   padding: clamp(0.62rem, 1.2dvh, 1.05rem);
   border: 1px solid var(--m90-border);
@@ -3269,18 +3394,61 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 }
 
 .pmi-form-main {
+  box-sizing: border-box;
+  height: 100%;
   min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--m90-border);
+  border-radius: 0.65rem;
+  box-shadow: var(--m90-shadow);
+  overflow: auto;
+  background: var(--m90-surface);
+  scrollbar-color: var(--m90-border) transparent;
+  scrollbar-width: thin;
+}
+
+.pmi-form-main::-webkit-scrollbar {
+  width: 1px;
+  height: 1px;
+}
+
+.pmi-form-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pmi-form-main::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--m90-border);
+}
+
+.pmi-form-main::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-creation-form {
+  min-height: 100%;
   font-family: "Inter", sans-serif;
   font-size: 12.5px;
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-form-section {
-  border: 1px solid var(--m90-border);
+  border: 0;
+  border-radius: 0;
   background: var(--m90-surface);
-  box-shadow: var(--m90-shadow);
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .pmi-form-main #pmi-income,
+body[data-page="next-step"] .pmi-form-main #pmi-housing,
+body[data-page="next-step"] .pmi-form-main #pmi-debts,
+body[data-page="next-step"] .pmi-form-main #pmi-expenses,
+body[data-page="next-step"] .pmi-form-main #pmi-savings-habits,
+body[data-page="next-step"] .pmi-form-main #pmi-assets,
+body[data-page="next-step"] .pmi-form-main #pmi-coverage,
+body[data-page="next-step"] .pmi-form-main #pmi-survivor,
+body[data-page="next-step"] .pmi-form-main #pmi-education,
+body[data-page="next-step"] .pmi-form-main #pmi-final {
+  min-height: var(--pmi-section-card-min-height);
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-form-section-heading {
@@ -3483,16 +3651,25 @@ body[data-page="next-step"] #pmi-income .pmi-reference-notice {
 }
 
 .pmi-cashflow-rail {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
   min-width: 0;
+  min-height: 0;
 }
 
 .pmi-cashflow-rail .pmi-expense-cashflow {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   grid-column: auto;
+  align-self: stretch;
   box-sizing: border-box;
-  height: calc(100dvh - var(--pmi-rail-sticky-top) - 1.85rem);
-  max-height: calc(100dvh - var(--pmi-rail-sticky-top) - 1.85rem);
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  min-height: 0;
   overflow: hidden;
   padding: 0;
   border: 1px solid var(--m90-border-soft);
@@ -3981,6 +4158,17 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-curre
 
   .pmi-file-header {
     grid-template-columns: minmax(0, 1fr);
+    gap: 0.56rem;
+  }
+
+  .pmi-file-field--name {
+    padding-right: 0;
+  }
+
+  .pmi-file-field--meta {
+    padding: 0.62rem 0 0;
+    border-top: 1px solid var(--m90-border-soft);
+    border-left: 0;
   }
 
   .pmi-form-layout {
@@ -3990,6 +4178,11 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-curre
   .pmi-cashflow-rail {
     position: static;
     order: -1;
+  }
+
+  .pmi-cashflow-rail .pmi-expense-cashflow {
+    position: static;
+    inset: auto;
   }
 }
 
