@@ -971,7 +971,7 @@
       <article class="pmi-housing-record-card" data-pmi-housing-record-entry data-housing-record-id="${escapeHtml(record.housingRecordId)}">
         <div class="pmi-housing-record-card-header">
           <div>
-            <span class="pmi-housing-record-index">Housing ${index + 1}</span>
+            <span class="pmi-reference-card-num pmi-housing-record-index">Housing ${index + 1}</span>
             <h3>${escapeHtml(record.label || typeLabel)}</h3>
           </div>
           <button class="pmi-housing-record-remove" type="button" data-pmi-housing-record-remove aria-label="Remove housing record">Remove</button>

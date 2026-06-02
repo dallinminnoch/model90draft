@@ -7,6 +7,7 @@ const modulePath = path.join(repoRoot, "app/features/lens-analysis/pmi-housing-r
 const nextStepPath = path.join(repoRoot, "pages/next-step.html");
 const confidentialInputsPath = path.join(repoRoot, "pages/confidential-inputs.html");
 const componentsPath = path.join(repoRoot, "components.css");
+const layoutPath = path.join(repoRoot, "layout.css");
 
 function readFile(relativeOrAbsolutePath) {
   return fs.readFileSync(relativeOrAbsolutePath, "utf8");
@@ -33,6 +34,7 @@ const moduleSource = readFile(modulePath);
 const nextStepSource = readFile(nextStepPath);
 const confidentialInputsSource = readFile(confidentialInputsPath);
 const componentsSource = readFile(componentsPath);
+const layoutSource = readFile(layoutPath);
 const pageSources = [
   { name: "next-step.html", source: nextStepSource },
   { name: "confidential-inputs.html", source: confidentialInputsSource }
@@ -163,15 +165,20 @@ assert(moduleSource.includes("Debt Remaining Term"), "Nested secured debt remain
 assert(moduleSource.includes("REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES"), "Removed top-level secured-debt type migration list is missing.");
 assert(moduleSource.includes("migrateRemovedTopLevelSecuredDebtRecord"), "Removed top-level secured-debt migration helper is missing.");
 assert(moduleSource.includes("serializeHousingRecord"), "Housing Records serialization wrapper is missing.");
+assert(nextStepSource.includes('<span class="pmi-reference-card-num">02 · Housing</span>'), "Existing Housing Costs eyebrow markup changed.");
+assert(nextStepSource.includes("<h2>Housing Costs</h2>"), "Existing Housing Costs title markup changed.");
+assert(/body\[data-page="next-step"\] \.pmi-form-main \.pmi-reference-card-num\s*\{[\s\S]*font-size:\s*9px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0\.08em;[\s\S]*text-transform:\s*uppercase;/.test(layoutSource), "Existing PMI section eyebrow typography changed.");
+assert(/body\[data-page="next-step"\] \.pmi-form-main \.profile-form-section-heading h2\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*13\.5px;[\s\S]*font-weight:\s*600;[\s\S]*line-height:\s*1\.2;/.test(layoutSource), "Existing PMI section title typography changed.");
+assert(moduleSource.includes('class="pmi-reference-card-num pmi-housing-record-index"'), "Housing Records card eyebrow should reuse PMI section eyebrow class.");
 const housingRecordsCssStart = componentsSource.indexOf(".pmi-housing-records-shell");
 const housingRecordsCssEnd = componentsSource.indexOf(".pmi-debt-records-table");
 assert(housingRecordsCssStart >= 0 && housingRecordsCssEnd > housingRecordsCssStart, "Could not inspect Housing Records component CSS.");
 const housingRecordsCss = componentsSource.slice(housingRecordsCssStart, housingRecordsCssEnd);
 assert(/\.pmi-housing-record-field\s*\{[\s\S]*font-size:\s*0\.64rem;[\s\S]*font-weight:\s*650;/.test(housingRecordsCss), "Housing field labels should use compact PMI record typography.");
 assert(/\.pmi-housing-record-field input,\s*[\s\S]*\.pmi-housing-record-field textarea\s*\{[\s\S]*min-height:\s*1\.72rem;[\s\S]*padding:\s*0\.22rem 0\.32rem;[\s\S]*border-radius:\s*0\.18rem;[\s\S]*font-size:\s*0\.78rem;/.test(housingRecordsCss), "Housing record controls should match compact PMI record input typography.");
-assert(/\.pmi-housing-record-card-header h3\s*\{[\s\S]*font-size:\s*0\.88rem;[\s\S]*font-weight:\s*700;/.test(housingRecordsCss), "Housing record titles should use PMI card-title typography.");
+assert(/\.pmi-housing-record-card-header \.pmi-reference-card-num\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*9px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0\.08em;[\s\S]*line-height:\s*1\.1;[\s\S]*text-transform:\s*uppercase;/.test(housingRecordsCss), "Housing record eyebrow should mirror PMI section eyebrow typography.");
+assert(/\.pmi-housing-record-card-header h3\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*13\.5px;[\s\S]*font-weight:\s*600;[\s\S]*line-height:\s*1\.2;/.test(housingRecordsCss), "Housing record titles should mirror PMI section title typography.");
 assert(/\.pmi-property-secured-debts-header h4,\s*[\s\S]*\.pmi-property-secured-debt-card-header h4\s*\{[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/.test(housingRecordsCss), "Additional Property-Secured Debts headings should use compact sub-card typography.");
-assert(!/font-weight:\s*750;/.test(housingRecordsCss), "Housing Records should not use oversized semi-bold one-off heading weight.");
 assert(!moduleSource.includes("PROPERTY_ROLE_OPTIONS"), "Generic Property Role options should not remain visible.");
 assert(!moduleSource.includes('label: "Property Role"'), "Generic Property Role label should not remain visible.");
 assert(!moduleSource.includes('type: "propertyRole"'), "Generic Property Role field type should not remain visible.");
