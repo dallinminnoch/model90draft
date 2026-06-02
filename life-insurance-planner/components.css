@@ -2866,6 +2866,8 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 
 .pmi-form-layout {
   --pmi-rail-sticky-top: calc(var(--workspace-topbar-height, 3.1rem) + 3.35rem);
+  --pmi-rail-sticky-align-offset: 20px;
+  --pmi-rail-sticky-effective-top: calc(var(--pmi-rail-sticky-top) - var(--pmi-rail-sticky-align-offset));
   display: grid;
   grid-template-columns: minmax(16rem, 17.5rem) minmax(0, 1fr) minmax(16.8rem, 18.5rem);
   gap: clamp(1.3rem, 2.1vw, 2rem);
@@ -2878,7 +2880,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 .pmi-workflow-menu,
 .pmi-cashflow-rail {
   position: sticky;
-  top: var(--pmi-rail-sticky-top);
+  top: var(--pmi-rail-sticky-effective-top);
   align-self: start;
 }
 
@@ -2970,7 +2972,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   display: grid;
   width: min(100%, 17.5rem);
   gap: clamp(0.52rem, 0.9dvh, 1rem);
-  max-height: calc(100dvh - var(--pmi-rail-sticky-top) - 0.85rem);
+  max-height: calc(100dvh - var(--pmi-rail-sticky-effective-top) - 0.85rem);
   padding: clamp(0.62rem, 1.2dvh, 1.05rem);
   border: 1px solid var(--m90-border);
   border-radius: 0.78rem;

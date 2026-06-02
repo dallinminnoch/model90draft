@@ -137,6 +137,8 @@ assert.match(componentsCss, /body\[data-page="next-step"\] \.lens-workflow-pane\
 assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-header\s*{[\s\S]*position:\s*sticky;/, "PMI banner should remain visible while the page scrolls.");
 assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-header\s*{[\s\S]*top:\s*0;/, "PMI banner should sit against the top of the scrollable content area.");
 assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-header \.confidential-calculator-toggle\s*{[\s\S]*width:\s*1\.85rem;/, "PMI banner calculator icon should be compact.");
+assert.match(componentsCss, /--pmi-rail-sticky-align-offset:\s*20px;/, "PMI side rails should correct the sticky offset that otherwise drops them below the form.");
+assert.match(componentsCss, /top:\s*var\(--pmi-rail-sticky-effective-top\);/, "PMI side rails should use the aligned effective sticky top.");
 assert.match(
   componentsCss,
   /body\[data-page="next-step"\]\s+#pmi-housing\s+\.field-group--centered-result\s+\.profile-currency-field\s*{[\s\S]*justify-self:\s*auto\s*!important;[\s\S]*width:\s*min\(100%,\s*24rem\)\s*!important;/,

@@ -135,7 +135,7 @@ const workflowMenuShellRule = getCssRule(componentsCss, ".pmi-workflow-menu");
 assert.doesNotMatch(workflowMenuShellRule, /background:\s*#[0-9a-fA-F]{3,6};/, "Workflow menu shell should not use a hardcoded dark card background.");
 assert.doesNotMatch(workflowMenuShellRule, /linear-gradient/, "Workflow menu shell should stay white/theme-token based, not a dark gradient.");
 assert.match(workflowMenuShellRule, /background:\s*var\(--m90-surface\);/, "Workflow menu shell should use the current theme surface.");
-assert.match(workflowMenuShellRule, /max-height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 0\.85rem\);/, "Workflow menu shell should cap itself to the visible viewport.");
+assert.match(workflowMenuShellRule, /max-height:\s*calc\(100dvh - var\(--pmi-rail-sticky-effective-top\) - 0\.85rem\);/, "Workflow menu shell should cap itself to the visible viewport.");
 
 const workflowMenuItemRule = getCssRule(componentsCss, ".pmi-workflow-menu-item");
 assert.match(workflowMenuItemRule, /min-height:\s*clamp\(2\.12rem,\s*4\.35dvh,\s*3\.3rem\);/, "Workflow menu rows should autosize to fit shorter screens.");
