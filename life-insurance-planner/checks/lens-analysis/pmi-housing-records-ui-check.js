@@ -58,7 +58,6 @@ const requiredFieldKeys = [
   "propertyTaxMonthly",
   "homeownersInsuranceMonthly",
   "hoaMonthly",
-  "maintenanceMonthly",
   "utilitiesMonthly",
   "rentMonthly",
   "leaseTermMonths",
@@ -135,6 +134,8 @@ assert(moduleSource.includes("mapRecordToHousingCalculationSource"), "Housing Re
 assert(moduleSource.includes("updateCalculatedDisplaysForRow"), "Housing Records does not update calculated displays at the record level.");
 assert(moduleSource.includes("data-pmi-housing-record-calculated-action"), "Housing Records calculated fields do not expose edit/reset actions.");
 assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), "Maintenance manual override metadata is missing.");
+assert(!moduleSource.includes('maintenanceMonthly: Object.freeze'), "Standalone Maintenance field definition should not remain visible.");
+assert(!moduleSource.includes('label: "Maintenance"'), "Standalone Maintenance label should not remain visible.");
 assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
 assert(moduleSource.includes("PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS"), "Primary residence arrangement options are missing.");
 assert(moduleSource.includes("primaryResidenceArrangement"), "Primary residence arrangement key is missing.");
@@ -154,15 +155,19 @@ assert(!moduleSource.includes("Costs Included"), "Costs-included payment label s
 assert(!moduleSource.includes("Included in Payment"), "Included-in-payment label should not remain visible.");
 assert(!moduleSource.includes("Main Mortgage"), "Main mortgage wording should not remain in visible labels.");
 assert(moduleSource.includes("Mortgage Balance"), "Mortgage balance label is missing.");
-assert(moduleSource.includes("Mortgage Principal & Interest Payment"), "Mortgage principal-and-interest payment label is missing.");
+assert(!moduleSource.includes("Mortgage Principal & Interest Payment"), "Mortgage principal-and-interest payment label should not remain visible.");
 assert(moduleSource.includes("Mortgage Interest Rate"), "Mortgage interest rate label is missing.");
-assert(moduleSource.includes("Mortgage Remaining Term"), "Mortgage remaining term label is missing.");
+assert(!moduleSource.includes("Mortgage Remaining Term"), "Mortgage remaining term labels should not remain visible.");
 assert(moduleSource.includes("Calculated Mortgage Payment"), "Calculated mortgage payment display label is missing.");
+assert(moduleSource.includes('label: "Monthly Property Tax"'), "Housing Records property tax label should say Monthly Property Tax.");
+assert(!moduleSource.includes('label: "Property Tax"'), "Housing Records property tax label should not be ambiguous.");
 assert(moduleSource.includes("Debt Balance"), "Nested secured debt balance label is missing.");
 assert(moduleSource.includes("Debt Monthly Payment"), "Nested secured debt monthly payment label is missing.");
 assert(moduleSource.includes("Debt Interest Rate"), "Nested secured debt interest rate label is missing.");
 assert(moduleSource.includes("Debt Remaining Term"), "Nested secured debt remaining term label is missing.");
 assert(moduleSource.includes("REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES"), "Removed top-level secured-debt type migration list is missing.");
+assert(moduleSource.includes("REMOVED_TOP_LEVEL_MORTGAGE_FIELD_KEYS"), "Removed top-level mortgage field sanitizer is missing.");
+assert(moduleSource.includes("REMOVED_TOP_LEVEL_MAINTENANCE_FIELD_KEYS"), "Removed top-level maintenance field sanitizer is missing.");
 assert(moduleSource.includes("migrateRemovedTopLevelSecuredDebtRecord"), "Removed top-level secured-debt migration helper is missing.");
 assert(moduleSource.includes("serializeHousingRecord"), "Housing Records serialization wrapper is missing.");
 assert(nextStepSource.includes('<span class="pmi-reference-card-num">02 · Housing</span>'), "Existing Housing Costs eyebrow markup changed.");
@@ -179,6 +184,7 @@ assert(/\.pmi-housing-record-field\s*\{[\s\S]*font-family:\s*"Inter", sans-serif
 assert(/\.pmi-housing-record-field input,\s*[\s\S]*\.pmi-housing-record-field textarea\s*\{[\s\S]*min-height:\s*1\.72rem;[\s\S]*padding:\s*0\.22rem 0\.32rem;[\s\S]*border-radius:\s*0\.18rem;[\s\S]*font-size:\s*0\.78rem;/.test(housingRecordsCss), "Housing record controls should match compact PMI record input typography.");
 assert(/\.pmi-housing-record-card-header \.pmi-reference-card-num\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*9px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0\.08em;[\s\S]*line-height:\s*1\.1;[\s\S]*text-transform:\s*uppercase;/.test(housingRecordsCss), "Housing record eyebrow should mirror PMI section eyebrow typography.");
 assert(/\.pmi-housing-record-card-header h3\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*13\.5px;[\s\S]*font-weight:\s*600;[\s\S]*line-height:\s*1\.2;/.test(housingRecordsCss), "Housing record titles should mirror PMI section title typography.");
+assert(/\.pmi-housing-records-toolbar \.pmi-housing-records-add-button\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*12\.5px;[\s\S]*font-weight:\s*600;[\s\S]*line-height:\s*1\.2;/.test(housingRecordsCss), "Add Housing Record button should use compact Housing record title typography.");
 assert(/\.pmi-property-secured-debts-header h4,\s*[\s\S]*\.pmi-property-secured-debt-card-header h4\s*\{[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/.test(housingRecordsCss), "Additional Property-Secured Debts headings should use compact sub-card typography.");
 assert(!moduleSource.includes("PROPERTY_ROLE_OPTIONS"), "Generic Property Role options should not remain visible.");
 assert(!moduleSource.includes('label: "Property Role"'), "Generic Property Role label should not remain visible.");
@@ -268,6 +274,41 @@ const arrangementLabels = housingRecordsApi.primaryResidenceArrangementOptions.m
     `${typeKey} createHousingRecord should drop stale propertyRole.`
   );
 });
+
+const recordWithStaleTopLevelMortgageFields = housingRecordsApi.createHousingRecord({
+  typeKey: "primaryResidence",
+  primaryResidenceArrangement: "ownWithMortgage",
+  monthlyPayment: "2000",
+  mortgageTermRemainingYears: "20",
+  mortgageTermRemainingMonths: "6",
+  remainingTermMonths: "246",
+  maintenanceMonthly: "250",
+  propertySecuredDebts: [{
+    debtType: "secondMortgage",
+    monthlyPayment: "400",
+    remainingTermMonths: "120"
+  }]
+});
+[
+  "monthlyPayment",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
+  "remainingTermMonths",
+  "maintenanceMonthly"
+].forEach((fieldKey) => {
+  assert(
+    !Object.prototype.hasOwnProperty.call(recordWithStaleTopLevelMortgageFields, fieldKey),
+    `Top-level Housing Record ${fieldKey} should be dropped from stale raw data.`
+  );
+});
+assert(
+  recordWithStaleTopLevelMortgageFields.propertySecuredDebts[0].monthlyPayment === "400",
+  "Nested property-secured debt monthlyPayment should be preserved."
+);
+assert(
+  recordWithStaleTopLevelMortgageFields.propertySecuredDebts[0].remainingTermMonths === "120",
+  "Nested property-secured debt remainingTermMonths should be preserved."
+);
 
 const continuesOptionsMatch = moduleSource.match(/const CONTINUES_AFTER_DEATH_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(continuesOptionsMatch, "Could not inspect continues-after-death options.");
@@ -408,17 +449,13 @@ assertArrangementIncludes("ownWithMortgage", [
   "propertyValue",
   "equityAmount",
   "currentBalance",
-  "monthlyPayment",
   "interestRatePercent",
-  "mortgageTermRemainingYears",
-  "mortgageTermRemainingMonths",
   "monthlyMortgagePaymentOnly",
   "associatedMonthlyCosts",
   "calculatedMonthlyMortgagePayment",
   "propertyTaxMonthly",
   "homeownersInsuranceMonthly",
   "hoaMonthly",
-  "maintenanceMonthly",
   "utilitiesMonthly",
   "otherHousingCostMonthly",
   "homeSquareFootage",
@@ -426,6 +463,11 @@ assertArrangementIncludes("ownWithMortgage", [
   "monthlyMaintenanceRecommendation"
 ]);
 assertArrangementExcludes("ownWithMortgage", [
+  "monthlyPayment",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
+  "remainingTermMonths",
+  "maintenanceMonthly",
   "escrowStatus",
   "costsIncludedInPayment",
   "propertyTaxIncludedInPayment",
@@ -458,7 +500,6 @@ assertArrangementIncludes("ownFreeAndClear", [
   "propertyTaxMonthly",
   "hoaMonthly",
   "homeownersInsuranceMonthly",
-  "maintenanceMonthly",
   "utilitiesMonthly",
   "otherHousingCostMonthly",
   "homeSquareFootage",
@@ -471,14 +512,14 @@ assertArrangementExcludes("ownFreeAndClear", [
   "interestRatePercent",
   "mortgageTermRemainingYears",
   "mortgageTermRemainingMonths",
-  "monthlyMortgagePaymentOnly"
+  "monthlyMortgagePaymentOnly",
+  "maintenanceMonthly"
 ]);
 ["secondHomeVacationProperty", "rentalInvestmentProperty", "housingOperatingCostOnly"].forEach((typeKey) => {
   assertTypeIncludes(typeKey, [
     "propertyTaxMonthly",
     "homeownersInsuranceMonthly",
     "hoaMonthly",
-    "maintenanceMonthly",
     "utilitiesMonthly",
     "otherHousingCostMonthly",
     "homeSquareFootage",
@@ -486,6 +527,11 @@ assertArrangementExcludes("ownFreeAndClear", [
     "monthlyMaintenanceRecommendation"
   ]);
   assertTypeExcludes(typeKey, [
+    "monthlyPayment",
+    "mortgageTermRemainingYears",
+    "mortgageTermRemainingMonths",
+    "remainingTermMonths",
+    "maintenanceMonthly",
     "escrowStatus",
     "costsIncludedInPayment",
     "propertyTaxIncludedInPayment",

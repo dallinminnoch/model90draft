@@ -78,6 +78,17 @@
     "hoaIncludedInPayment"
   ]);
 
+  const REMOVED_TOP_LEVEL_MORTGAGE_FIELD_KEYS = Object.freeze([
+    "monthlyPayment",
+    "mortgageTermRemainingYears",
+    "mortgageTermRemainingMonths",
+    "remainingTermMonths"
+  ]);
+
+  const REMOVED_TOP_LEVEL_MAINTENANCE_FIELD_KEYS = Object.freeze([
+    "maintenanceMonthly"
+  ]);
+
   const REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES = Object.freeze([
     "secondMortgageHeloc",
     "secondMortgage",
@@ -143,10 +154,9 @@
     monthlyPayment: Object.freeze({ label: "Monthly Payment", type: "number", step: "50", suffix: "USD" }),
     interestRatePercent: Object.freeze({ label: "Interest Rate", type: "number", step: "0.01", suffix: "%" }),
     remainingTermMonths: Object.freeze({ label: "Remaining Term", type: "number", step: "1", suffix: "Months" }),
-    propertyTaxMonthly: Object.freeze({ label: "Property Tax", type: "number", step: "25", suffix: "USD" }),
+    propertyTaxMonthly: Object.freeze({ label: "Monthly Property Tax", type: "number", step: "25", suffix: "USD" }),
     homeownersInsuranceMonthly: Object.freeze({ label: "Housing Insurance", type: "number", step: "25", suffix: "USD" }),
     hoaMonthly: Object.freeze({ label: "HOA", type: "number", step: "25", suffix: "USD" }),
-    maintenanceMonthly: Object.freeze({ label: "Maintenance", type: "number", step: "25", suffix: "USD" }),
     utilitiesMonthly: Object.freeze({ label: "Utilities", type: "number", step: "25", suffix: "USD" }),
     homeSquareFootage: Object.freeze({ label: "Home Square Footage", type: "homeSquareFootage" }),
     homeAgeYears: Object.freeze({ label: "Home Age", type: "text", inputMode: "numeric", placeholder: "Years" }),
@@ -233,11 +243,7 @@
       "propertyValue",
       "equityAmount",
       "currentBalance",
-      "monthlyPayment",
       "interestRatePercent",
-      "mortgageTermRemainingYears",
-      "mortgageTermRemainingMonths",
-      "remainingTermMonths",
       "monthlyMortgagePaymentOnly",
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
@@ -245,7 +251,6 @@
       "homeSquareFootage",
       "homeAgeYears",
       "monthlyMaintenanceRecommendation",
-      "maintenanceMonthly",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
       "associatedMonthlyCosts",
@@ -267,7 +272,6 @@
       "homeSquareFootage",
       "homeAgeYears",
       "monthlyMaintenanceRecommendation",
-      "maintenanceMonthly",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
       "associatedMonthlyCosts",
@@ -279,14 +283,12 @@
     secondHomeVacationProperty: Object.freeze([
       "propertyValue",
       "mortgageBalance",
-      "monthlyPayment",
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
       "hoaMonthly",
       "homeSquareFootage",
       "homeAgeYears",
       "monthlyMaintenanceRecommendation",
-      "maintenanceMonthly",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
       "associatedMonthlyCosts",
@@ -295,7 +297,6 @@
     rentalInvestmentProperty: Object.freeze([
       "propertyValue",
       "mortgageBalance",
-      "monthlyPayment",
       "grossMonthlyRentReceived",
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
@@ -303,7 +304,6 @@
       "homeSquareFootage",
       "homeAgeYears",
       "monthlyMaintenanceRecommendation",
-      "maintenanceMonthly",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
       "associatedMonthlyCosts",
@@ -321,7 +321,6 @@
       "homeSquareFootage",
       "homeAgeYears",
       "monthlyMaintenanceRecommendation",
-      "maintenanceMonthly",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
       "associatedMonthlyCosts",
@@ -462,6 +461,12 @@
   function omitRemovedHousingRecordFields(record) {
     const sanitized = omitRemovedEscrowFields(record);
     delete sanitized.propertyRole;
+    REMOVED_TOP_LEVEL_MORTGAGE_FIELD_KEYS.forEach((fieldKey) => {
+      delete sanitized[fieldKey];
+    });
+    REMOVED_TOP_LEVEL_MAINTENANCE_FIELD_KEYS.forEach((fieldKey) => {
+      delete sanitized[fieldKey];
+    });
     return sanitized;
   }
 
@@ -735,20 +740,8 @@
       if (fieldKey === "currentBalance" || fieldKey === "mortgageBalance") {
         return "Mortgage Balance";
       }
-      if (fieldKey === "monthlyPayment") {
-        return "Mortgage Principal & Interest Payment";
-      }
       if (fieldKey === "interestRatePercent") {
         return "Mortgage Interest Rate";
-      }
-      if (fieldKey === "remainingTermMonths") {
-        return "Mortgage Remaining Term";
-      }
-      if (fieldKey === "mortgageTermRemainingYears") {
-        return "Mortgage Remaining Term Years";
-      }
-      if (fieldKey === "mortgageTermRemainingMonths") {
-        return "Mortgage Remaining Term Months";
       }
     }
 
