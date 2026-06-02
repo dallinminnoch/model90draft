@@ -3318,6 +3318,50 @@ body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .p
   display: none;
 }
 
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:has(#income-growth-rate) {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:has(#income-growth-rate) > .profile-form-section-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 22px 0;
+  border: 0;
+  background: transparent;
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:has(#income-growth-rate) > .profile-form-section-heading::before {
+  display: none;
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:has(#income-growth-rate) > .profile-form-section-heading h2 {
+  flex: 0 0 auto;
+  color: var(--m90-text-muted);
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:has(#income-growth-rate) > .profile-form-section-heading::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--m90-border-soft);
+}
+
+body[data-page="next-step"] #pmi-income > .profile-form-section-group-stack > .profile-form-subsection:has(#income-growth-rate) > .profile-form-section-heading p {
+  display: none;
+}
+
 body[data-page="next-step"] #pmi-income .income-calculation-grid {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.92rem 1.1rem;
