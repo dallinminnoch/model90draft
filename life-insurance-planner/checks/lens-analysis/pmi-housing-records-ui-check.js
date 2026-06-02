@@ -136,6 +136,7 @@ assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), 
 assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
 assert(moduleSource.includes("PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS"), "Primary residence arrangement options are missing.");
 assert(moduleSource.includes("primaryResidenceArrangement"), "Primary residence arrangement key is missing.");
+assert(moduleSource.includes("derivePropertyRole"), "Derived propertyRole helper is missing.");
 assert(moduleSource.includes("normalizeContinuesAfterDeath"), "Continues-after-death normalizer is missing.");
 assert(moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Removed escrow field sanitizer is missing.");
 assert(moduleSource.includes("omitRemovedEscrowFields"), "Escrow field omission helper is missing.");
@@ -161,6 +162,17 @@ assert(moduleSource.includes("Debt Remaining Term"), "Nested secured debt remain
 assert(moduleSource.includes("REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES"), "Removed top-level secured-debt type migration list is missing.");
 assert(moduleSource.includes("migrateRemovedTopLevelSecuredDebtRecord"), "Removed top-level secured-debt migration helper is missing.");
 assert(moduleSource.includes("serializeHousingRecord"), "Housing Records serialization wrapper is missing.");
+assert(!moduleSource.includes("PROPERTY_ROLE_OPTIONS"), "Generic Property Role options should not remain visible.");
+assert(!moduleSource.includes('label: "Property Role"'), "Generic Property Role label should not remain visible.");
+assert(!moduleSource.includes('type: "propertyRole"'), "Generic Property Role field type should not remain visible.");
+assert(!moduleSource.includes('fieldConfig.type === "propertyRole"'), "Generic Property Role renderer should not remain.");
+
+const baseFieldsMatch = moduleSource.match(/const BASE_FIELDS = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert(baseFieldsMatch, "Could not inspect Housing Records base fields.");
+assert(!baseFieldsMatch[1].includes('"propertyRole"'), "Generic propertyRole should not be in visible base fields.");
+const primaryResidenceBaseFieldsMatch = moduleSource.match(/const PRIMARY_RESIDENCE_BASE_FIELDS = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert(primaryResidenceBaseFieldsMatch, "Could not inspect Primary Residence base fields.");
+assert(!primaryResidenceBaseFieldsMatch[1].includes('"propertyRole"'), "Generic propertyRole should not be in visible Primary Residence base fields.");
 
 const housingTypeOptionsMatch = moduleSource.match(/const HOUSING_TYPE_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(housingTypeOptionsMatch, "Could not inspect top-level Housing Record type options.");
@@ -222,6 +234,25 @@ const arrangementLabels = housingRecordsApi.primaryResidenceArrangementOptions.m
 ].forEach((label) => {
   assert(arrangementLabels.includes(label), `Exported Primary Residence arrangement ${label} is missing.`);
 });
+
+[
+  ["primaryResidence", "investmentProperty", "primaryResidence"],
+  ["secondHomeVacationProperty", "primaryResidence", "secondaryResidence"],
+  ["rentalInvestmentProperty", "primaryResidence", "investmentProperty"],
+  ["temporaryHousing", "primaryResidence", "temporaryHousing"],
+  ["housingOperatingCostOnly", "primaryResidence", "other"],
+  ["otherHousingObligation", "primaryResidence", "other"]
+].forEach(([typeKey, staleRole, expectedRole]) => {
+  const derivedRoleRecord = housingRecordsApi.createHousingRecord({ typeKey, propertyRole: staleRole });
+  assert(
+    derivedRoleRecord.propertyRole === expectedRole,
+    `${typeKey} should derive propertyRole ${expectedRole}, got ${derivedRoleRecord.propertyRole}.`
+  );
+});
+assert(
+  /function serializeHousingRecord[\s\S]*propertyRole: derivePropertyRole/.test(moduleSource),
+  "Housing Records serialization should derive propertyRole instead of trusting stale raw values."
+);
 
 const continuesOptionsMatch = moduleSource.match(/const CONTINUES_AFTER_DEATH_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(continuesOptionsMatch, "Could not inspect continues-after-death options.");
