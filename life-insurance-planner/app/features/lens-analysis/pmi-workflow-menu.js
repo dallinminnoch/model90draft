@@ -3,9 +3,8 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   // Owner: PMI workflow menu shell.
-  // Purpose: define the dormant left-menu structure for the next PMI nav pass.
-  // Non-goals: no DOM mounting, no scrollspy wiring, no attestation/storage reads,
-  // no progress calculation, and no replacement of the current pmi-section-nav.
+  // Purpose: define the left-menu structure and section-highlight behavior.
+  // Non-goals: no attestation/storage reads, no progress math, and no analysis output.
 
   const PMI_WORKFLOW_MENU_VERSION = "pmi-workflow-menu-shell-v1";
 
@@ -22,6 +21,7 @@
     needsAttention: "Needs attention",
     notStarted: "Not started"
   });
+  const PMI_WORKFLOW_MENU_ACTIVE_LABEL = "In progress";
 
   const PMI_WORKFLOW_MENU_GROUPS = Object.freeze([
     Object.freeze({
@@ -179,7 +179,7 @@
     return {
       version: PMI_WORKFLOW_MENU_VERSION,
       diagnosticOnly: true,
-      wiredIntoRuntime: false,
+      wiredIntoRuntime: true,
       currentSectionKey,
       rows,
       groups: PMI_WORKFLOW_MENU_GROUPS.map((group) => ({
@@ -233,7 +233,7 @@
         <span class="pmi-workflow-menu-copy">
           <span class="pmi-workflow-menu-label">${escapeHtml(row.label)}</span>
           <span class="pmi-workflow-menu-description">${escapeHtml(row.description)}</span>
-          ${row.active ? `<span class="pmi-workflow-menu-active-label">${escapeHtml(row.statusLabel)}</span>` : ""}
+          ${row.active ? `<span class="pmi-workflow-menu-active-label">${escapeHtml(PMI_WORKFLOW_MENU_ACTIVE_LABEL)}</span>` : ""}
         </span>
         ${renderStatusIcon(row)}
       </a>
@@ -288,13 +288,168 @@
     `;
   }
 
+  function getWorkflowMenuLinks(doc) {
+    if (!doc || typeof doc.querySelectorAll !== "function") {
+      return [];
+    }
+    return Array.from(doc.querySelectorAll("[data-pmi-workflow-menu-section]"));
+  }
+
+  function getWorkflowMenuSectionEntries(doc) {
+    return getWorkflowMenuLinks(doc)
+      .map((link) => {
+        const href = link.getAttribute("href") || "";
+        if (!href.startsWith("#") || href.length < 2) {
+          return null;
+        }
+        const section = doc.getElementById(href.slice(1));
+        return section
+          ? {
+              key: link.getAttribute("data-pmi-workflow-menu-section"),
+              link,
+              section
+            }
+          : null;
+      })
+      .filter(Boolean);
+  }
+
+  function syncActiveWorkflowMenuLabel(link, doc) {
+    const copy = link.querySelector(".pmi-workflow-menu-copy");
+    if (!copy || !doc || typeof doc.createElement !== "function") {
+      return;
+    }
+    let label = copy.querySelector(".pmi-workflow-menu-active-label");
+    if (!label) {
+      label = doc.createElement("span");
+      label.className = "pmi-workflow-menu-active-label";
+      copy.appendChild(label);
+    }
+    label.textContent = PMI_WORKFLOW_MENU_ACTIVE_LABEL;
+  }
+
+  function setActivePmiWorkflowMenuSection(sectionKey, doc = global.document) {
+    if (!sectionKey || !doc) {
+      return false;
+    }
+
+    let didActivate = false;
+    getWorkflowMenuLinks(doc).forEach((link) => {
+      const isActive = link.getAttribute("data-pmi-workflow-menu-section") === sectionKey;
+      link.classList.toggle("is-active", isActive);
+      if (isActive) {
+        link.setAttribute("aria-current", "page");
+        syncActiveWorkflowMenuLabel(link, doc);
+        didActivate = true;
+      } else {
+        link.removeAttribute("aria-current");
+        link.querySelector(".pmi-workflow-menu-active-label")?.remove();
+      }
+    });
+
+    return didActivate;
+  }
+
+  function isScrollRootAtEnd(scrollRoot) {
+    return Boolean(
+      scrollRoot
+      && typeof scrollRoot.scrollTop === "number"
+      && scrollRoot.scrollHeight - scrollRoot.clientHeight - scrollRoot.scrollTop <= 4
+    );
+  }
+
+  function getCurrentWorkflowMenuSectionKey(entries, activationOffset, scrollRoot) {
+    if (!entries.length) {
+      return "";
+    }
+    if (isScrollRootAtEnd(scrollRoot)) {
+      return entries[entries.length - 1].key;
+    }
+
+    let activeEntry = entries[0];
+    entries.forEach((entry) => {
+      const rect = entry.section.getBoundingClientRect();
+      if (rect.top <= activationOffset && rect.bottom > 0) {
+        activeEntry = entry;
+      }
+    });
+
+    return activeEntry.key;
+  }
+
+  function getWorkflowMenuScrollRoot(doc, win) {
+    const pane = doc.querySelector(".lens-workflow-pane");
+    if (pane && pane.scrollHeight > pane.clientHeight) {
+      return pane;
+    }
+    return doc.scrollingElement || win;
+  }
+
+  function mountPmiWorkflowMenuScrollSpy(options = {}) {
+    const doc = options.document || global.document;
+    const win = options.window || global.window;
+    if (!doc || !win) {
+      return null;
+    }
+
+    const entries = getWorkflowMenuSectionEntries(doc);
+    if (!entries.length) {
+      return null;
+    }
+    const scrollRoot = getWorkflowMenuScrollRoot(doc, win);
+
+    const getActivationOffset = () => {
+      const topbar = doc.querySelector(".workspace-page-topbar");
+      const topbarHeight = topbar ? topbar.getBoundingClientRect().height : 0;
+      return topbarHeight + 72;
+    };
+
+    let frame = 0;
+    const updateActiveSection = () => {
+      frame = 0;
+      setActivePmiWorkflowMenuSection(
+        getCurrentWorkflowMenuSectionKey(entries, getActivationOffset(), scrollRoot),
+        doc
+      );
+    };
+    const scheduleUpdate = () => {
+      if (frame) {
+        return;
+      }
+      frame = win.requestAnimationFrame(updateActiveSection);
+    };
+
+    entries.forEach(({ key, link }) => {
+      link.addEventListener("click", () => {
+        setActivePmiWorkflowMenuSection(key, doc);
+      });
+    });
+    scrollRoot.addEventListener("scroll", scheduleUpdate, { passive: true });
+    win.addEventListener("resize", scheduleUpdate, { passive: true });
+    updateActiveSection();
+
+    return {
+      refresh: updateActiveSection,
+      destroy() {
+        if (frame) {
+          win.cancelAnimationFrame(frame);
+          frame = 0;
+        }
+        scrollRoot.removeEventListener("scroll", scheduleUpdate);
+        win.removeEventListener("resize", scheduleUpdate);
+      }
+    };
+  }
+
   lensAnalysis.pmiWorkflowMenu = {
     version: PMI_WORKFLOW_MENU_VERSION,
     statuses: PMI_WORKFLOW_MENU_STATUSES,
     sections: PMI_WORKFLOW_MENU_SECTIONS,
     groups: PMI_WORKFLOW_MENU_GROUPS,
     buildPmiWorkflowMenuModel,
-    renderPmiWorkflowMenu
+    renderPmiWorkflowMenu,
+    setActivePmiWorkflowMenuSection,
+    mountPmiWorkflowMenuScrollSpy
   };
 
   if (typeof module !== "undefined" && module.exports) {
@@ -304,7 +459,9 @@
       PMI_WORKFLOW_MENU_SECTIONS,
       PMI_WORKFLOW_MENU_GROUPS,
       buildPmiWorkflowMenuModel,
-      renderPmiWorkflowMenu
+      renderPmiWorkflowMenu,
+      setActivePmiWorkflowMenuSection,
+      mountPmiWorkflowMenuScrollSpy
     };
   }
 })(typeof globalThis !== "undefined" ? globalThis : this);

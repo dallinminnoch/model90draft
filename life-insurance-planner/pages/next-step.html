@@ -1181,6 +1181,7 @@
   <script src="../app/features/lens-analysis/savings-contribution-facts.js"></script>
   <script src="../app/features/lens-analysis/pmi-expense-records.js"></script>
   <script src="../app/features/lens-analysis/pmi-housing-records.js"></script>
+  <script src="../app/features/lens-analysis/pmi-workflow-menu.js"></script>
   <script src="../app/features/lens-analysis/block-outputs.js"></script>
   <script src="../app/features/lens-analysis/helpers/housing-support-calculations.js"></script>
   <script src="../app/features/lens-analysis/blocks/existing-coverage.js"></script>
@@ -5254,6 +5255,7 @@
       renderExistingCoverageCard();
       syncExistingCoverageBlockOutput();
       syncOffsetAssetsBlockOutput();
+      window.LensApp?.lensAnalysis?.pmiWorkflowMenu?.mountPmiWorkflowMenuScrollSpy?.();
       if (typeof window.LensApp?.lensAnalysisDev?.mountLensIncomeDebugPanel === "function") {
         window.LensApp.lensAnalysisDev.mountLensIncomeDebugPanel(window.LensApp.lensAnalysisRuntime);
       }

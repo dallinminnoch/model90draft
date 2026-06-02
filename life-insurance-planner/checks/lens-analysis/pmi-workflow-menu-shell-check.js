@@ -31,6 +31,8 @@ function getCssRule(css, selector) {
 assert.equal(workflowMenu.PMI_WORKFLOW_MENU_VERSION, "pmi-workflow-menu-shell-v1");
 assert.equal(typeof workflowMenu.buildPmiWorkflowMenuModel, "function");
 assert.equal(typeof workflowMenu.renderPmiWorkflowMenu, "function");
+assert.equal(typeof workflowMenu.setActivePmiWorkflowMenuSection, "function");
+assert.equal(typeof workflowMenu.mountPmiWorkflowMenuScrollSpy, "function");
 assert.equal(workflowMenu.PMI_WORKFLOW_MENU_SECTIONS.length, 10);
 assert.equal(workflowMenu.PMI_WORKFLOW_MENU_GROUPS.length, 2);
 
@@ -51,7 +53,7 @@ const model = workflowMenu.buildPmiWorkflowMenuModel({
 });
 
 assert.equal(model.diagnosticOnly, true);
-assert.equal(model.wiredIntoRuntime, false);
+assert.equal(model.wiredIntoRuntime, true);
 assert.equal(model.currentSectionKey, "housing");
 assert.equal(model.progress.totalCount, 10);
 assert.equal(model.progress.reviewedCount, 2);
@@ -84,6 +86,7 @@ const html = workflowMenu.renderPmiWorkflowMenu({
   '8 sections remaining',
   'Sections marked for review',
   '1 section marked for review',
+  'pmi-workflow-menu-active-label">In progress',
   'data-pmi-workflow-menu-section="housing"',
   'data-pmi-workflow-menu-status="inProgress"',
   'pmi-workflow-menu-item is-active',
@@ -171,15 +174,10 @@ assert.match(
   "Workflow menu should use an additional short-height increment so it fits the cash-flow-sized rail."
 );
 
-[
-  nextStepPage,
-  confidentialInputsPage
-].forEach((pageSource) => {
-  assert.doesNotMatch(pageSource, /pmi-workflow-menu\.js/, "Dormant workflow menu module should not be loaded by PMI pages yet.");
-});
-
 assert.match(nextStepPage, /data-pmi-workflow-menu-shell/, "PMI page should visibly mount the workflow menu shell.");
 assert.match(nextStepPage, /pmi-workflow-menu-version="pmi-workflow-menu-shell-v1"/, "Mounted workflow menu should carry the shell version.");
+assert.match(nextStepPage, /app\/features\/lens-analysis\/pmi-workflow-menu\.js/, "Mounted workflow menu module should load on the visible PMI page.");
+assert.match(nextStepPage, /mountPmiWorkflowMenuScrollSpy/, "Visible PMI page should mount workflow menu scroll highlighting.");
 assert.match(nextStepPage, /data-pmi-workflow-menu-section="housing"/, "Mounted workflow menu should include the housing section.");
 [
   "Sections completed",
@@ -204,11 +202,15 @@ assert.doesNotMatch(html, />Protection Planning</, "Rendered workflow menu shoul
 assert.doesNotMatch(nextStepPage, /data-pmi-section-nav/, "Old visible scalar section nav should be replaced by the workflow shell.");
 assert.doesNotMatch(nextStepPage, /pmi-section-nav-link/, "Old visible section nav links should not remain in the page structure.");
 assert.doesNotMatch(confidentialInputsPage, /data-pmi-workflow-menu-shell/, "Confidential inputs page should not mount the PMI workflow shell.");
+assert.doesNotMatch(confidentialInputsPage, /pmi-workflow-menu\.js/, "Confidential inputs page should not load the PMI workflow menu module.");
 
-assert.doesNotMatch(
-  moduleSource,
-  /querySelector|getElementById|addEventListener|localStorage|sessionStorage/,
-  "Dormant workflow menu module should not wire DOM events or storage."
-);
+assert.match(moduleSource, /function mountPmiWorkflowMenuScrollSpy/, "Workflow menu module should own the runtime scroll-spy mount.");
+assert.match(moduleSource, /\.lens-workflow-pane/, "Workflow menu scroll-spy should observe the PMI pane scroll root.");
+assert.match(moduleSource, /scrollHeight - scrollRoot\.clientHeight - scrollRoot\.scrollTop <= 4/, "Workflow menu scroll-spy should treat the last section as active at the bottom of the PMI pane.");
+assert.match(moduleSource, /requestAnimationFrame/, "Workflow menu scroll-spy should throttle scroll updates.");
+assert.match(moduleSource, /addEventListener\("scroll"/, "Workflow menu module should listen for scroll changes.");
+assert.match(moduleSource, /setActivePmiWorkflowMenuSection/, "Workflow menu module should expose active-section updates.");
+assert.doesNotMatch(moduleSource, /localStorage|sessionStorage/, "Workflow menu scroll-spy should not read or write browser storage.");
+assert.doesNotMatch(moduleSource, /calculate|normalizeLensModel|coverageStrategy|incomeImpact|graph/i, "Workflow menu scroll-spy should not couple to calculations or output graphs.");
 
 console.log("pmi-workflow-menu-shell-check passed");
