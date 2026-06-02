@@ -60,7 +60,6 @@ const requiredFieldKeys = [
   "hoaMonthly",
   "maintenanceMonthly",
   "utilitiesMonthly",
-  "escrowStatus",
   "rentMonthly",
   "leaseTermMonths",
   "otherHousingCostMonthly",
@@ -120,6 +119,18 @@ assert(moduleSource.includes("updateCalculatedDisplaysForRow"), "Housing Records
 assert(moduleSource.includes("data-pmi-housing-record-calculated-action"), "Housing Records calculated fields do not expose edit/reset actions.");
 assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), "Maintenance manual override metadata is missing.");
 assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
+assert(moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Removed escrow field sanitizer is missing.");
+assert(moduleSource.includes("omitRemovedEscrowFields"), "Escrow field omission helper is missing.");
+assert(moduleSource.includes("controller.records.map(omitRemovedEscrowFields)"), "Housing Records serialization does not omit removed escrow fields.");
+assert(!/escrowStatus:\s*Object\.freeze/.test(moduleSource), "Escrow status field definition should not be rendered.");
+assert(!moduleSource.includes('"escrowStatus"') || moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Escrow status should only appear in the removed-field sanitizer.");
+assert(!moduleSource.includes('label: "Escrow Status"'), "Escrow Status label should not remain visible.");
+assert(!moduleSource.includes('label: "Escrowed"'), "Escrowed option label should not remain visible.");
+assert(!moduleSource.includes('label: "Not Escrowed"'), "Not Escrowed option label should not remain visible.");
+assert(!moduleSource.includes("Costs Included"), "Costs-included payment label should not remain visible.");
+assert(!moduleSource.includes("Included in Payment"), "Included-in-payment label should not remain visible.");
+assert(moduleSource.includes("Principal & Interest Payment"), "Mortgage payment label should use principal-and-interest wording.");
+assert(moduleSource.includes("Calculated Principal & Interest Payment"), "Calculated mortgage payment display should use principal-and-interest wording.");
 
 requiredTypeKeys.forEach((typeKey) => {
   assert(moduleSource.includes(typeKey), `Housing record type ${typeKey} is missing.`);
@@ -155,9 +166,23 @@ assertTypeIncludes("primaryResidenceMortgage", [
   "monthlyMortgagePaymentOnly",
   "associatedMonthlyCosts",
   "calculatedMonthlyMortgagePayment",
+  "propertyTaxMonthly",
+  "homeownersInsuranceMonthly",
+  "hoaMonthly",
+  "maintenanceMonthly",
+  "utilitiesMonthly",
+  "otherHousingCostMonthly",
   "homeSquareFootage",
   "homeAgeYears",
   "monthlyMaintenanceRecommendation"
+]);
+assertTypeExcludes("primaryResidenceMortgage", [
+  "escrowStatus",
+  "costsIncludedInPayment",
+  "propertyTaxIncludedInPayment",
+  "insuranceIncludedInPayment",
+  "homeownersInsuranceIncludedInPayment",
+  "hoaIncludedInPayment"
 ]);
 assertTypeIncludes("primaryResidenceRent", [
   "rentMonthly",
@@ -175,18 +200,42 @@ assertTypeIncludes("primaryResidenceOwnedFreeAndClear", [
   "propertyTaxMonthly",
   "hoaMonthly",
   "homeownersInsuranceMonthly",
+  "maintenanceMonthly",
   "utilitiesMonthly",
+  "otherHousingCostMonthly",
   "homeSquareFootage",
   "homeAgeYears",
   "monthlyMaintenanceRecommendation"
 ]);
 ["secondHomeVacationProperty", "rentalInvestmentProperty", "housingOperatingCostOnly"].forEach((typeKey) => {
   assertTypeIncludes(typeKey, [
+    "propertyTaxMonthly",
+    "homeownersInsuranceMonthly",
+    "hoaMonthly",
+    "maintenanceMonthly",
+    "utilitiesMonthly",
+    "otherHousingCostMonthly",
     "homeSquareFootage",
     "homeAgeYears",
     "monthlyMaintenanceRecommendation"
   ]);
+  assertTypeExcludes(typeKey, [
+    "escrowStatus",
+    "costsIncludedInPayment",
+    "propertyTaxIncludedInPayment",
+    "insuranceIncludedInPayment",
+    "homeownersInsuranceIncludedInPayment",
+    "hoaIncludedInPayment"
+  ]);
 });
+assertTypeExcludes("secondMortgageHeloc", [
+  "escrowStatus",
+  "costsIncludedInPayment",
+  "propertyTaxIncludedInPayment",
+  "insuranceIncludedInPayment",
+  "homeownersInsuranceIncludedInPayment",
+  "hoaIncludedInPayment"
+]);
 
 [
   "homeSquareFootage",

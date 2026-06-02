@@ -68,6 +68,15 @@
     "homeAgeYears"
   ]);
 
+  const REMOVED_ESCROW_FIELD_KEYS = Object.freeze([
+    "escrowStatus",
+    "costsIncludedInPayment",
+    "propertyTaxIncludedInPayment",
+    "insuranceIncludedInPayment",
+    "homeownersInsuranceIncludedInPayment",
+    "hoaIncludedInPayment"
+  ]);
+
   const FIELD_DEFINITIONS = Object.freeze({
     label: Object.freeze({ label: "Record Label", type: "text", placeholder: "Housing record" }),
     typeKey: Object.freeze({ label: "Housing Type", type: "housingType" }),
@@ -88,20 +97,9 @@
     monthlyMaintenanceRecommendation: Object.freeze({ label: "Recommended Maintenance / Repairs", type: "calculatedCurrency" }),
     mortgageTermRemainingYears: Object.freeze({ label: "Remaining Term Years", type: "number", step: "1", suffix: "Years" }),
     mortgageTermRemainingMonths: Object.freeze({ label: "Remaining Term Months", type: "number", step: "1", max: "11", suffix: "Months" }),
-    monthlyMortgagePaymentOnly: Object.freeze({ label: "Mortgage Payment Excluding Tax and Insurance", type: "calculatedCurrency" }),
+    monthlyMortgagePaymentOnly: Object.freeze({ label: "Calculated Principal & Interest Payment", type: "calculatedCurrency" }),
     associatedMonthlyCosts: Object.freeze({ label: "Associated Monthly Costs", type: "calculatedCurrency" }),
     calculatedMonthlyMortgagePayment: Object.freeze({ label: "Calculated Monthly Burden", type: "calculatedCurrency" }),
-    escrowStatus: Object.freeze({
-      label: "Escrow Status",
-      type: "select",
-      options: Object.freeze([
-        Object.freeze({ value: "", label: "Select" }),
-        Object.freeze({ value: "escrowed", label: "Escrowed" }),
-        Object.freeze({ value: "notEscrowed", label: "Not Escrowed" }),
-        Object.freeze({ value: "partial", label: "Partial" }),
-        Object.freeze({ value: "unknown", label: "Unknown" })
-      ])
-    }),
     rentMonthly: Object.freeze({ label: "Monthly Rent", type: "number", step: "50", suffix: "USD" }),
     leaseTermMonths: Object.freeze({ label: "Lease Term", type: "number", step: "1", suffix: "Months" }),
     otherHousingCostMonthly: Object.freeze({ label: "Other Housing Costs", type: "number", step: "25", suffix: "USD" }),
@@ -192,9 +190,9 @@
       "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
       "utilitiesMonthly",
+      "otherHousingCostMonthly",
       "associatedMonthlyCosts",
-      "calculatedMonthlyMortgagePayment",
-      "escrowStatus"
+      "calculatedMonthlyMortgagePayment"
     ]),
     primaryResidenceRent: Object.freeze([
       "rentMonthly",
@@ -214,6 +212,7 @@
       "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
       "utilitiesMonthly",
+      "otherHousingCostMonthly",
       "associatedMonthlyCosts",
       "calculatedMonthlyMortgagePayment"
     ]),
@@ -244,6 +243,7 @@
       "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
       "utilitiesMonthly",
+      "otherHousingCostMonthly",
       "associatedMonthlyCosts",
       "calculatedMonthlyMortgagePayment"
     ]),
@@ -260,6 +260,7 @@
       "monthlyMaintenanceRecommendation",
       "maintenanceMonthly",
       "utilitiesMonthly",
+      "otherHousingCostMonthly",
       "associatedMonthlyCosts",
       "calculatedMonthlyMortgagePayment"
     ]),
@@ -351,6 +352,15 @@
 
   function getTypeConfig(typeKey) {
     return HOUSING_TYPE_OPTIONS.find((option) => option.value === typeKey) || HOUSING_TYPE_OPTIONS[0];
+  }
+
+  function omitRemovedEscrowFields(record) {
+    const source = record && typeof record === "object" ? record : {};
+    const sanitized = { ...source };
+    REMOVED_ESCROW_FIELD_KEYS.forEach((fieldKey) => {
+      delete sanitized[fieldKey];
+    });
+    return sanitized;
   }
 
   function getHousingStatusForRecord(record) {
@@ -447,7 +457,7 @@
   }
 
   function createHousingRecord(partialRecord) {
-    const source = partialRecord && typeof partialRecord === "object" ? partialRecord : {};
+    const source = omitRemovedEscrowFields(partialRecord);
     const typeKey = getTypeConfig(source.typeKey).value;
     const label = normalizeString(source.label) || getTypeConfig(typeKey).label;
     const housingRecordId = normalizeString(source.housingRecordId)
@@ -479,6 +489,28 @@
     }
 
     return normalizeString(record.debtSubType) === fieldConfig.showForDebtSubType;
+  }
+
+  function getFieldLabel(fieldKey, fieldConfig, record) {
+    if (fieldKey !== "monthlyPayment") {
+      return fieldConfig.label;
+    }
+
+    const typeKey = getTypeConfig(record?.typeKey).value;
+    if (typeKey === "secondMortgageHeloc" && normalizeString(record?.debtSubType) === "heloc") {
+      return "Monthly Payment";
+    }
+
+    if (
+      typeKey === "primaryResidenceMortgage"
+      || typeKey === "secondMortgageHeloc"
+      || typeKey === "secondHomeVacationProperty"
+      || typeKey === "rentalInvestmentProperty"
+    ) {
+      return "Principal & Interest Payment";
+    }
+
+    return fieldConfig.label;
   }
 
   function renderControl(fieldKey, fieldConfig, record) {
@@ -545,10 +577,11 @@
     if (!shouldShowField(fieldConfig, record)) {
       return "";
     }
+    const label = getFieldLabel(fieldKey, fieldConfig, record);
 
     return `
       <label class="pmi-housing-record-field" data-housing-record-field-group="${escapeHtml(groupName)}">
-        <span>${escapeHtml(fieldConfig.label)}</span>
+        <span>${escapeHtml(label)}</span>
         ${renderControl(fieldKey, fieldConfig, record)}
       </label>
     `;
@@ -770,7 +803,7 @@
 
     function serializeHousingRecords() {
       syncRecordsFromDom();
-      return controller.records.map((record) => ({ ...record }));
+      return controller.records.map(omitRemovedEscrowFields);
     }
 
     controller.hydrateHousingRecords = hydrateHousingRecords;
