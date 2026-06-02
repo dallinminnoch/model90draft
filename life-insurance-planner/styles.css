@@ -5067,6 +5067,10 @@ body.clients-page.is-a11y-reduced-motion .client-rail-button:focus-visible {
 }
 
 @layer overrides {
+body[data-page="next-step"] {
+  background: var(--m90-surface);
+}
+
 body[data-step="income-impact"] input[data-income-impact-death-age-slider],
 body[data-step="income-impact"] input[data-income-impact-lifestyle-slider] {
   box-sizing: border-box;

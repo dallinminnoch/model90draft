@@ -2747,7 +2747,7 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 body[data-page="next-step"] .lens-workflow-pane {
   padding: 0;
   overflow: auto;
-  background: var(--m90-bg);
+  background: var(--m90-surface);
 }
 
 body[data-page="next-step"] .prospect-empty-panel {
