@@ -55,8 +55,9 @@ assert.equal(model.wiredIntoRuntime, false);
 assert.equal(model.currentSectionKey, "housing");
 assert.equal(model.progress.totalCount, 10);
 assert.equal(model.progress.reviewedCount, 2);
-assert.equal(model.insights.needsAttentionCount, 1);
-assert.equal(model.insights.notStartedCount, 7);
+assert.equal(model.insights.completedCount, 1);
+assert.equal(model.insights.remainingCount, 8);
+assert.equal(model.insights.reviewCount, 1);
 assert.equal(model.groups[0].label, "Household Foundation");
 assert.equal(model.groups[1].label, "Protection Planning");
 assert.equal(model.groups[1].showTitle, false);
@@ -77,14 +78,30 @@ const html = workflowMenu.renderPmiWorkflowMenu({
   'Workflow Progress',
   'Household Foundation',
   'Workflow Insights',
+  'Sections completed',
+  '1 section completed',
+  'Sections remaining',
+  '8 sections remaining',
+  'Sections marked for review',
+  '1 section marked for review',
   'data-pmi-workflow-menu-section="housing"',
   'data-pmi-workflow-menu-status="inProgress"',
   'pmi-workflow-menu-item is-active',
   'pmi-workflow-menu-status--complete',
   'pmi-workflow-menu-status--attention',
-  'pmi-workflow-menu-status--empty'
+  'pmi-workflow-menu-status--empty',
+  'pmi-workflow-menu-insight-icon--complete'
 ].forEach((snippet) => {
   assert.match(html, new RegExp(snippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `Rendered menu should include ${snippet}.`);
+});
+
+[
+  "Next up",
+  "Add housing record",
+  "Needs attention</small>",
+  "Not started</small>"
+].forEach((snippet) => {
+  assert.doesNotMatch(html, new RegExp(snippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `Rendered workflow insights should not include old insight copy ${snippet}.`);
 });
 
 [
@@ -111,6 +128,7 @@ const html = workflowMenu.renderPmiWorkflowMenu({
   ".pmi-workflow-menu-item.is-active",
   ".pmi-workflow-menu-number",
   ".pmi-workflow-menu-status--complete",
+  ".pmi-workflow-menu-insight-icon--complete",
   ".pmi-workflow-menu-status--attention",
   ".pmi-workflow-menu-status--empty",
   ".pmi-workflow-menu-insights"
@@ -156,7 +174,24 @@ assert.match(
 assert.match(nextStepPage, /data-pmi-workflow-menu-shell/, "PMI page should visibly mount the workflow menu shell.");
 assert.match(nextStepPage, /pmi-workflow-menu-version="pmi-workflow-menu-shell-v1"/, "Mounted workflow menu should carry the shell version.");
 assert.match(nextStepPage, /data-pmi-workflow-menu-section="housing"/, "Mounted workflow menu should include the housing section.");
-assert.match(nextStepPage, /Add housing record/, "Mounted workflow menu should include the static housing next-up preview.");
+[
+  "Sections completed",
+  "6 sections completed",
+  "Sections remaining",
+  "4 sections remaining",
+  "Sections marked for review",
+  "2 sections marked for review"
+].forEach((snippet) => {
+  assert.match(nextStepPage, new RegExp(snippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `Mounted workflow insights should include ${snippet}.`);
+});
+[
+  "Next up",
+  "Add housing record",
+  "Needs attention</small>",
+  "Not started</small>"
+].forEach((snippet) => {
+  assert.doesNotMatch(nextStepPage, new RegExp(snippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `Mounted workflow insights should not include old insight copy ${snippet}.`);
+});
 assert.doesNotMatch(nextStepPage, />Protection Planning</, "Mounted workflow menu should not render the Protection Planning divider.");
 assert.doesNotMatch(html, />Protection Planning</, "Rendered workflow menu should not render the Protection Planning divider.");
 assert.doesNotMatch(nextStepPage, /data-pmi-section-nav/, "Old visible scalar section nav should be replaced by the workflow shell.");

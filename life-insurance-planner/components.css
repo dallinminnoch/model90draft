@@ -3175,12 +3175,14 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 }
 
 .pmi-workflow-menu-status--complete,
+.pmi-workflow-menu-insight-icon--complete,
 .pmi-workflow-menu-insight-icon--next {
   background: var(--m90-success, #2f6b52);
   color: #ffffff;
 }
 
-.pmi-workflow-menu-status--complete::before {
+.pmi-workflow-menu-status--complete::before,
+.pmi-workflow-menu-insight-icon--complete::before {
   content: "\2713";
 }
 

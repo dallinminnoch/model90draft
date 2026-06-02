@@ -168,14 +168,13 @@
     const source = input && typeof input === "object" ? input : {};
     const currentSectionKey = normalizeCurrentSectionKey(source.currentSectionKey);
     const rows = buildSectionRows(source.sectionStatusByKey, currentSectionKey);
+    const completedCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.COMPLETE);
     const reviewedCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.COMPLETE)
       + countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.IN_PROGRESS);
     const attentionCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.NEEDS_ATTENTION);
     const notStartedCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.NOT_STARTED);
-    const nextSection = rows.find((row) => row.status === PMI_WORKFLOW_MENU_STATUSES.IN_PROGRESS)
-      || rows.find((row) => row.status === PMI_WORKFLOW_MENU_STATUSES.NEEDS_ATTENTION)
-      || rows.find((row) => row.status === PMI_WORKFLOW_MENU_STATUSES.NOT_STARTED)
-      || rows[0];
+    const remainingCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.IN_PROGRESS)
+      + notStartedCount;
 
     return {
       version: PMI_WORKFLOW_MENU_VERSION,
@@ -193,11 +192,16 @@
         segmentCount: rows.length
       },
       insights: {
-        nextUpLabel: nextSection ? `Add ${nextSection.label.toLowerCase()} record` : "Review workflow",
-        needsAttentionCount: attentionCount,
-        notStartedCount
+        completedCount,
+        remainingCount,
+        reviewCount: attentionCount
       }
     };
+  }
+
+  function formatSectionCount(count, phrase) {
+    const sectionLabel = count === 1 ? "section" : "sections";
+    return `${count} ${sectionLabel} ${phrase}`;
   }
 
   function renderStatusIcon(row) {
@@ -268,16 +272,16 @@
         <section class="pmi-workflow-menu-insights" aria-label="Workflow insights">
           <div class="pmi-workflow-menu-group-title"><span>Workflow Insights</span></div>
           <div class="pmi-workflow-menu-insight-row">
-            <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--next" aria-hidden="true"></span>
-            <span><small>Next up</small><strong>${escapeHtml(model.insights.nextUpLabel)}</strong></span>
-          </div>
-          <div class="pmi-workflow-menu-insight-row">
-            <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--attention" aria-hidden="true"></span>
-            <span><small>Needs attention</small><strong>${escapeHtml(model.insights.needsAttentionCount)} sections need review</strong></span>
+            <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--complete" aria-hidden="true"></span>
+            <span><small>Sections completed</small><strong>${escapeHtml(formatSectionCount(model.insights.completedCount, "completed"))}</strong></span>
           </div>
           <div class="pmi-workflow-menu-insight-row">
             <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--empty" aria-hidden="true"></span>
-            <span><small>Not started</small><strong>${escapeHtml(model.insights.notStartedCount)} sections remaining</strong></span>
+            <span><small>Sections remaining</small><strong>${escapeHtml(formatSectionCount(model.insights.remainingCount, "remaining"))}</strong></span>
+          </div>
+          <div class="pmi-workflow-menu-insight-row">
+            <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--attention" aria-hidden="true"></span>
+            <span><small>Sections marked for review</small><strong>${escapeHtml(formatSectionCount(model.insights.reviewCount, "marked for review"))}</strong></span>
           </div>
         </section>
       </aside>
