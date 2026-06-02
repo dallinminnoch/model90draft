@@ -153,7 +153,7 @@
     monthlyMaintenanceRecommendation: Object.freeze({ label: "Recommended Maintenance / Repairs", type: "calculatedCurrency" }),
     mortgageTermRemainingYears: Object.freeze({ label: "Remaining Term Years", type: "number", step: "1", suffix: "Years" }),
     mortgageTermRemainingMonths: Object.freeze({ label: "Remaining Term Months", type: "number", step: "1", max: "11", suffix: "Months" }),
-    monthlyMortgagePaymentOnly: Object.freeze({ label: "Calculated Principal & Interest Payment", type: "calculatedCurrency" }),
+    monthlyMortgagePaymentOnly: Object.freeze({ label: "Calculated Main Mortgage Payment", type: "calculatedCurrency" }),
     associatedMonthlyCosts: Object.freeze({ label: "Associated Monthly Costs", type: "calculatedCurrency" }),
     calculatedMonthlyMortgagePayment: Object.freeze({ label: "Calculated Monthly Burden", type: "calculatedCurrency" }),
     rentMonthly: Object.freeze({ label: "Monthly Rent", type: "number", step: "50", suffix: "USD" }),
@@ -637,17 +637,36 @@
   }
 
   function getFieldLabel(fieldKey, fieldConfig, record) {
-    if (fieldKey !== "monthlyPayment") {
-      return fieldConfig.label;
-    }
-
     const typeKey = getTypeConfig(record?.typeKey).value;
-    if (
+    const isMainMortgageRecord = (
       typeKey === "primaryResidenceMortgage"
       || typeKey === "secondHomeVacationProperty"
       || typeKey === "rentalInvestmentProperty"
-    ) {
-      return "Principal & Interest Payment";
+    );
+
+    if (isMainMortgageRecord) {
+      if (fieldKey === "currentBalance" || fieldKey === "mortgageBalance") {
+        return "Main Mortgage Balance";
+      }
+      if (fieldKey === "monthlyPayment") {
+        return "Main Mortgage Principal & Interest Payment";
+      }
+      if (fieldKey === "interestRatePercent") {
+        return "Main Mortgage Interest Rate";
+      }
+      if (fieldKey === "remainingTermMonths") {
+        return "Main Mortgage Remaining Term";
+      }
+      if (fieldKey === "mortgageTermRemainingYears") {
+        return "Main Mortgage Remaining Term Years";
+      }
+      if (fieldKey === "mortgageTermRemainingMonths") {
+        return "Main Mortgage Remaining Term Months";
+      }
+    }
+
+    if (fieldKey !== "monthlyPayment") {
+      return fieldConfig.label;
     }
 
     return fieldConfig.label;
@@ -760,12 +779,12 @@
     const fieldConfigs = {
       debtType: { label: "Debt Type", type: "select", options: PROPERTY_SECURED_DEBT_TYPE_OPTIONS },
       label: { label: "Label", type: "text", placeholder: "Property-secured debt" },
-      currentBalance: { label: "Current Balance", type: "number", step: "1000", suffix: "USD" },
-      monthlyPayment: { label: "Monthly Payment", type: "number", step: "50", suffix: "USD" },
-      interestRatePercent: { label: "Interest Rate", type: "number", step: "0.01", suffix: "%" },
+      currentBalance: { label: "Debt Balance", type: "number", step: "1000", suffix: "USD" },
+      monthlyPayment: { label: "Debt Monthly Payment", type: "number", step: "50", suffix: "USD" },
+      interestRatePercent: { label: "Debt Interest Rate", type: "number", step: "0.01", suffix: "%" },
       rateType: FIELD_DEFINITIONS.rateType,
       paymentType: FIELD_DEFINITIONS.paymentType,
-      remainingTermMonths: { label: "Remaining Term", type: "number", step: "1", suffix: "Months" },
+      remainingTermMonths: { label: "Debt Remaining Term", type: "number", step: "1", suffix: "Months" },
       lienPosition: FIELD_DEFINITIONS.lienPosition,
       continuesAfterDeath: { label: "Continues After Death?", type: "select", options: CONTINUES_AFTER_DEATH_OPTIONS },
       creditLimit: { label: "Credit Limit", type: "number", step: "1000", suffix: "USD" },
