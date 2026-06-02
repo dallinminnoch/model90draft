@@ -3402,11 +3402,11 @@ body[data-page="next-step"] .pmi-cashflow-rail {
   height: 100%;
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--m90-border);
+  border: 0;
   border-radius: 0.65rem 0.65rem 0 0;
-  box-shadow: var(--m90-shadow);
+  box-shadow: none;
   overflow: auto;
-  background: var(--m90-bg);
+  background: transparent;
   scrollbar-color: var(--m90-border) transparent;
   scrollbar-width: thin;
 }
@@ -3439,6 +3439,12 @@ body[data-page="next-step"] .pmi-form-main .profile-form-section {
   border: 0;
   border-radius: 0;
   background: var(--m90-surface);
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .pmi-form-main .profile-creation-form > .profile-form-section {
+  border: 1px solid var(--m90-border);
+  border-radius: 10px;
   box-shadow: none;
 }
 
