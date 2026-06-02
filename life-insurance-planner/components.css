@@ -2342,8 +2342,8 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
 .pmi-housing-records-toolbar h3 {
   margin: 0.08rem 0 0;
   color: var(--m90-text-primary);
-  font-size: 1rem;
-  font-weight: 750;
+  font-size: 0.9rem;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -2384,7 +2384,7 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-toolbar h3 {
 .pmi-housing-record-index {
   display: block;
   color: var(--m90-text-secondary);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.15;
@@ -2448,8 +2448,8 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 .pmi-housing-record-card-header h3 {
   margin: 0.08rem 0 0;
   color: var(--m90-text-primary);
-  font-size: 0.95rem;
-  font-weight: 750;
+  font-size: 0.88rem;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.2;
 }
@@ -2466,8 +2466,8 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
   gap: 0.24rem;
   min-width: 0;
   color: var(--m90-text-secondary);
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.64rem;
+  font-weight: 650;
   line-height: 1.18;
 }
 
@@ -2477,10 +2477,10 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  min-height: 1.95rem;
-  padding: 0.34rem 0.5rem;
+  min-height: 1.72rem;
+  padding: 0.22rem 0.32rem;
   border-color: var(--m90-border-soft);
-  border-radius: 0.34rem;
+  border-radius: 0.18rem;
   background: var(--m90-surface);
   color: var(--m90-text-primary);
   font-size: 0.78rem;
@@ -2494,7 +2494,7 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 .pmi-housing-record-input-shell {
   overflow: hidden;
   border: 1px solid var(--m90-border-soft);
-  border-radius: 0.34rem;
+  border-radius: 0.18rem;
   background: var(--m90-surface-secondary);
 }
 
@@ -2518,9 +2518,9 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 }
 
 .pmi-housing-record-input-shell .profile-currency-suffix {
-  right: 0.42rem;
+  right: 0.3rem;
   color: var(--m90-text-muted);
-  font-size: 0.55rem;
+  font-size: 0.56rem;
 }
 
 .pmi-housing-record-field input:focus,
@@ -2557,8 +2557,8 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 .pmi-property-secured-debt-card-header h4 {
   margin: 0.08rem 0 0;
   color: var(--m90-text-primary);
-  font-size: 0.82rem;
-  font-weight: 750;
+  font-size: 0.78rem;
+  font-weight: 700;
   line-height: 1.2;
 }
 

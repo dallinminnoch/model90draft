@@ -163,6 +163,15 @@ assert(moduleSource.includes("Debt Remaining Term"), "Nested secured debt remain
 assert(moduleSource.includes("REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES"), "Removed top-level secured-debt type migration list is missing.");
 assert(moduleSource.includes("migrateRemovedTopLevelSecuredDebtRecord"), "Removed top-level secured-debt migration helper is missing.");
 assert(moduleSource.includes("serializeHousingRecord"), "Housing Records serialization wrapper is missing.");
+const housingRecordsCssStart = componentsSource.indexOf(".pmi-housing-records-shell");
+const housingRecordsCssEnd = componentsSource.indexOf(".pmi-debt-records-table");
+assert(housingRecordsCssStart >= 0 && housingRecordsCssEnd > housingRecordsCssStart, "Could not inspect Housing Records component CSS.");
+const housingRecordsCss = componentsSource.slice(housingRecordsCssStart, housingRecordsCssEnd);
+assert(/\.pmi-housing-record-field\s*\{[\s\S]*font-size:\s*0\.64rem;[\s\S]*font-weight:\s*650;/.test(housingRecordsCss), "Housing field labels should use compact PMI record typography.");
+assert(/\.pmi-housing-record-field input,\s*[\s\S]*\.pmi-housing-record-field textarea\s*\{[\s\S]*min-height:\s*1\.72rem;[\s\S]*padding:\s*0\.22rem 0\.32rem;[\s\S]*border-radius:\s*0\.18rem;[\s\S]*font-size:\s*0\.78rem;/.test(housingRecordsCss), "Housing record controls should match compact PMI record input typography.");
+assert(/\.pmi-housing-record-card-header h3\s*\{[\s\S]*font-size:\s*0\.88rem;[\s\S]*font-weight:\s*700;/.test(housingRecordsCss), "Housing record titles should use PMI card-title typography.");
+assert(/\.pmi-property-secured-debts-header h4,\s*[\s\S]*\.pmi-property-secured-debt-card-header h4\s*\{[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/.test(housingRecordsCss), "Additional Property-Secured Debts headings should use compact sub-card typography.");
+assert(!/font-weight:\s*750;/.test(housingRecordsCss), "Housing Records should not use oversized semi-bold one-off heading weight.");
 assert(!moduleSource.includes("PROPERTY_ROLE_OPTIONS"), "Generic Property Role options should not remain visible.");
 assert(!moduleSource.includes('label: "Property Role"'), "Generic Property Role label should not remain visible.");
 assert(!moduleSource.includes('type: "propertyRole"'), "Generic Property Role field type should not remain visible.");
