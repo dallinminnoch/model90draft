@@ -18,7 +18,7 @@ const stylesCss = readRepoFile("styles.css");
 
 [
   "data-pmi-form-layout",
-  "data-pmi-section-nav",
+  "data-pmi-workflow-menu-shell",
   "data-pmi-cashflow-rail",
   "data-pmi-expense-cashflow-root",
   "pmi-form-main"
@@ -38,7 +38,7 @@ const stylesCss = readRepoFile("styles.css");
   ["#pmi-education", "Education"],
   ["#pmi-final", "Final Expenses"]
 ].forEach(([href, label]) => {
-  assert.match(pageSource, new RegExp(`href="${href.replace("#", "\\#")}"[\\s\\S]*>${label}`), `PMI side navigation should include ${label}.`);
+  assert.match(pageSource, new RegExp(`href="${href.replace("#", "\\#")}"[\\s\\S]*>${label}`), `PMI workflow menu should include ${label}.`);
 });
 
 [
@@ -150,8 +150,8 @@ assert.doesNotMatch(layoutCss, /content:\s*"01 \\00B7  Income Calculation"/, "PM
 
 [
   ".pmi-form-layout",
-  ".pmi-section-nav",
-  ".pmi-section-nav-link",
+  ".pmi-workflow-menu",
+  ".pmi-workflow-menu-item",
   ".pmi-form-main",
   ".pmi-cashflow-rail",
   ".pmi-cashflow-rail .pmi-expense-cashflow",

@@ -2347,6 +2347,39 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   letter-spacing: 0;
 }
 
+body[data-page="next-step"] #pmi-housing .pmi-housing-records-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+body[data-page="next-step"] #pmi-housing .pmi-housing-records-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+body[data-page="next-step"] #pmi-housing .pmi-housing-records-toolbar > div::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--m90-border-soft);
+}
+
+body[data-page="next-step"] #pmi-housing .pmi-housing-records-toolbar h3 {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--m90-text-muted);
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
 .pmi-housing-records-kicker,
 .pmi-housing-record-index {
   display: block;
@@ -2356,6 +2389,10 @@ body[data-page="protection-modeling-inputs"] .preliminary-link-grid {
   letter-spacing: 0;
   line-height: 1.15;
   text-transform: uppercase;
+}
+
+body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
+  display: none;
 }
 
 .pmi-housing-records-add-button,
@@ -2830,7 +2867,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 .pmi-form-layout {
   --pmi-rail-sticky-top: calc(var(--workspace-topbar-height, 3.1rem) + 3.35rem);
   display: grid;
-  grid-template-columns: minmax(10.5rem, 12.6rem) minmax(0, 1fr) minmax(16.8rem, 18.5rem);
+  grid-template-columns: minmax(16rem, 17.5rem) minmax(0, 1fr) minmax(16.8rem, 18.5rem);
   gap: clamp(1.3rem, 2.1vw, 2rem);
   align-items: start;
   width: 100%;
@@ -2838,6 +2875,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 }
 
 .pmi-section-nav,
+.pmi-workflow-menu,
 .pmi-cashflow-rail {
   position: sticky;
   top: var(--pmi-rail-sticky-top);
@@ -2926,6 +2964,269 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   font-weight: 500;
   line-height: 1;
   opacity: 0.7;
+}
+
+.pmi-workflow-menu {
+  display: grid;
+  width: min(100%, 17.5rem);
+  gap: 1rem;
+  padding: 1.05rem;
+  border: 1px solid var(--m90-border);
+  border-radius: 0.78rem;
+  background: var(--m90-surface);
+  color: var(--m90-text-primary);
+  box-shadow: var(--m90-shadow);
+}
+
+.pmi-workflow-menu-header {
+  display: grid;
+  gap: 0.88rem;
+  min-width: 0;
+}
+
+.pmi-workflow-menu-kicker,
+.pmi-workflow-menu-group-title,
+.pmi-workflow-menu-progress-copy > span,
+.pmi-workflow-menu-insight-row small {
+  color: var(--m90-text-muted);
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.pmi-workflow-menu-progress-copy {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.pmi-workflow-menu-progress-copy strong {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: var(--m90-accent);
+  font-family: "DM Mono", "Consolas", monospace;
+  font-size: 1.32rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pmi-workflow-menu-progress-copy strong span {
+  color: var(--m90-text-primary);
+  font-family: "Inter", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pmi-workflow-menu-progress-track {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 0.22rem;
+}
+
+.pmi-workflow-menu-progress-segment {
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--m90-border);
+}
+
+.pmi-workflow-menu-progress-segment.is-filled {
+  background: var(--m90-accent);
+}
+
+.pmi-workflow-menu-group {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.pmi-workflow-menu-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pmi-workflow-menu-group-title::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--m90-border-soft);
+}
+
+.pmi-workflow-menu-list {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.pmi-workflow-menu-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.72rem;
+  align-items: center;
+  min-width: 0;
+  min-height: 3.3rem;
+  padding: 0.62rem 0.7rem;
+  border: 1px solid var(--m90-border-soft);
+  border-radius: 0.58rem;
+  background: var(--m90-surface-secondary);
+  color: var(--m90-text-primary);
+  text-decoration: none;
+  box-shadow: none;
+}
+
+.pmi-workflow-menu-item:hover,
+.pmi-workflow-menu-item:focus-visible {
+  border-color: var(--m90-focus-ring);
+  background: var(--m90-surface);
+  color: var(--m90-text-primary);
+  outline: 0;
+}
+
+.pmi-workflow-menu-item.is-active {
+  border-color: var(--m90-focus-ring);
+  background: var(--m90-accent-soft);
+}
+
+.pmi-workflow-menu-item.is-active::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.28rem;
+  border-radius: 0.58rem 0 0 0.58rem;
+  background: var(--m90-accent);
+}
+
+.pmi-workflow-menu-number {
+  display: inline-flex;
+  width: 2.1rem;
+  height: 2.1rem;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--m90-border);
+  border-radius: 999px;
+  background: var(--m90-surface);
+  color: var(--m90-text-secondary);
+  font-family: "DM Mono", "Consolas", monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pmi-workflow-menu-item.is-active .pmi-workflow-menu-number {
+  border-color: var(--m90-accent);
+  background: var(--m90-accent);
+  color: #ffffff;
+}
+
+.pmi-workflow-menu-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.pmi-workflow-menu-label {
+  overflow: hidden;
+  color: var(--m90-text-primary);
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pmi-workflow-menu-description {
+  overflow: hidden;
+  color: var(--m90-text-secondary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pmi-workflow-menu-active-label {
+  color: var(--m90-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.pmi-workflow-menu-status,
+.pmi-workflow-menu-insight-icon {
+  display: inline-flex;
+  width: 1.18rem;
+  height: 1.18rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pmi-workflow-menu-status--complete,
+.pmi-workflow-menu-insight-icon--next {
+  background: var(--m90-success, #2f6b52);
+  color: #ffffff;
+}
+
+.pmi-workflow-menu-status--complete::before {
+  content: "\2713";
+}
+
+.pmi-workflow-menu-status--attention,
+.pmi-workflow-menu-insight-icon--attention {
+  background: var(--m90-warning, #b7791f);
+  color: #ffffff;
+}
+
+.pmi-workflow-menu-status--attention::before,
+.pmi-workflow-menu-insight-icon--attention::before {
+  content: "!";
+}
+
+.pmi-workflow-menu-status--empty,
+.pmi-workflow-menu-insight-icon--empty {
+  border: 2px solid var(--m90-border);
+  background: var(--m90-surface);
+  color: transparent;
+}
+
+.pmi-workflow-menu-insights {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.78rem;
+  border: 1px solid var(--m90-border);
+  border-radius: 0.58rem;
+  background: var(--m90-surface);
+}
+
+.pmi-workflow-menu-insight-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.pmi-workflow-menu-insight-row span:last-child {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.pmi-workflow-menu-insight-row strong {
+  color: var(--m90-text-primary);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.18;
+}
+
+.pmi-workflow-menu-insight-icon--next::before {
+  content: "\2192";
 }
 
 .pmi-form-main {
@@ -3527,7 +3828,8 @@ body[data-page="next-step"] #pmi-income .primary-net-income-group .profile-curre
     grid-template-columns: minmax(0, 1fr) minmax(15rem, 17rem);
   }
 
-  .pmi-section-nav {
+  .pmi-section-nav,
+  .pmi-workflow-menu {
     display: none;
   }
 }
