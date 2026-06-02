@@ -139,6 +139,7 @@ assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-head
 assert.match(componentsCss, /body\[data-page="next-step"\] \.prospect-panel-header \.confidential-calculator-toggle\s*{[\s\S]*width:\s*1\.85rem;/, "PMI banner calculator icon should be compact.");
 assert.match(componentsCss, /--pmi-rail-sticky-align-offset:\s*20px;/, "PMI side rails should correct the sticky offset that otherwise drops them below the form.");
 assert.match(componentsCss, /top:\s*var\(--pmi-rail-sticky-effective-top\);/, "PMI side rails should use the aligned effective sticky top.");
+assert.match(componentsCss, /\.pmi-workflow-menu\s*{[\s\S]*height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 1\.85rem\);[\s\S]*max-height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 1\.85rem\);/, "PMI workflow menu should resize with the same visible viewport height contract as the cash-flow rail.");
 assert.match(componentsCss, /\.pmi-cashflow-rail \.pmi-expense-cashflow\s*{[\s\S]*height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 1\.85rem\);/, "PMI cash-flow rail should resize to the visible viewport height.");
 assert.match(componentsCss, /\.pmi-cashflow-rail \.pmi-expense-cashflow-track\s*{[\s\S]*width:\s*min\(340px,\s*calc\(100% - 24px\),\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 19\.5rem\)\);/, "PMI cash-flow donut should shrink with shorter viewport heights.");
 assert.match(

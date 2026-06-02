@@ -153,7 +153,9 @@ const workflowMenuShellRule = getCssRule(componentsCss, ".pmi-workflow-menu");
 assert.doesNotMatch(workflowMenuShellRule, /background:\s*#[0-9a-fA-F]{3,6};/, "Workflow menu shell should not use a hardcoded dark card background.");
 assert.doesNotMatch(workflowMenuShellRule, /linear-gradient/, "Workflow menu shell should stay white/theme-token based, not a dark gradient.");
 assert.match(workflowMenuShellRule, /background:\s*var\(--m90-surface\);/, "Workflow menu shell should use the current theme surface.");
-assert.match(workflowMenuShellRule, /max-height:\s*calc\(100dvh - var\(--pmi-rail-sticky-effective-top\) - 0\.85rem\);/, "Workflow menu shell should cap itself to the visible viewport.");
+assert.match(workflowMenuShellRule, /height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 1\.85rem\);/, "Workflow menu shell should use the same viewport-height sizing increment as the cash-flow rail.");
+assert.match(workflowMenuShellRule, /max-height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 1\.85rem\);/, "Workflow menu shell should cap itself with the same viewport-height sizing increment as the cash-flow rail.");
+assert.match(workflowMenuShellRule, /overflow:\s*hidden;/, "Workflow menu shell should contain its autosized rail content.");
 
 const workflowMenuItemRule = getCssRule(componentsCss, ".pmi-workflow-menu-item");
 assert.match(workflowMenuItemRule, /min-height:\s*clamp\(2\.12rem,\s*4\.35dvh,\s*3\.3rem\);/, "Workflow menu rows should autosize to fit shorter screens.");
@@ -162,6 +164,11 @@ assert.match(
   componentsCss,
   /\.pmi-workflow-menu-group\[data-pmi-workflow-menu-group="protectionPlanning"\]\s*{[\s\S]*margin-top:\s*calc\(clamp\(0\.18rem,\s*0\.38dvh,\s*0\.34rem\) - clamp\(0\.52rem,\s*0\.9dvh,\s*1rem\)\);/,
   "Protection planning group should collapse the parent menu gap left by the removed divider."
+);
+assert.match(
+  componentsCss,
+  /@media \(min-width:\s*1181px\) and \(max-height:\s*700px\)\s*{[\s\S]*\.pmi-workflow-menu-description\s*{[\s\S]*display:\s*none;/,
+  "Workflow menu should use an additional short-height increment so it fits the cash-flow-sized rail."
 );
 
 [
