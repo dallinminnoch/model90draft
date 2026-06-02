@@ -34,7 +34,6 @@
   ]);
 
   const CONTINUES_AFTER_DEATH_OPTIONS = Object.freeze([
-    Object.freeze({ value: "review", label: "Review" }),
     Object.freeze({ value: "yes", label: "Yes" }),
     Object.freeze({ value: "no", label: "No" })
   ]);
@@ -383,6 +382,10 @@
     return value === true || normalizeString(value).toLowerCase() === "true";
   }
 
+  function normalizeContinuesAfterDeath(value) {
+    return normalizeString(value).toLowerCase() === "no" ? "no" : "yes";
+  }
+
   function formatNumberWithCommas(value) {
     const numericValue = Number(value);
     if (!Number.isFinite(numericValue)) {
@@ -522,7 +525,7 @@
       securedDebtId,
       debtType,
       label,
-      continuesAfterDeath: normalizeString(source.continuesAfterDeath) || "review"
+      continuesAfterDeath: normalizeContinuesAfterDeath(source.continuesAfterDeath)
     };
   }
 
@@ -642,12 +645,13 @@
       typeKey,
       label,
       propertyRole: normalizeString(source.propertyRole) || "primaryResidence",
-      continuesAfterDeath: normalizeString(source.continuesAfterDeath) || "review",
+      continuesAfterDeath: normalizeContinuesAfterDeath(source.continuesAfterDeath),
       ...source,
       housingRecordId,
       typeKey,
       primaryResidenceArrangement,
       label,
+      continuesAfterDeath: normalizeContinuesAfterDeath(source.continuesAfterDeath),
       propertySecuredDebts
     };
     if (typeKey !== "primaryResidence") {
@@ -657,7 +661,10 @@
   }
 
   function serializeHousingRecord(record) {
-    const sanitizedRecord = omitRemovedEscrowFields(record);
+    const sanitizedRecord = {
+      ...omitRemovedEscrowFields(record),
+      continuesAfterDeath: normalizeContinuesAfterDeath(record?.continuesAfterDeath)
+    };
     const typeKey = getTypeConfig(sanitizedRecord.typeKey).value;
     const recordForSupport = {
       ...sanitizedRecord,
@@ -1049,6 +1056,7 @@
         record[fieldKey] = field.value;
       });
       record.typeKey = getTypeConfig(record.typeKey).value;
+      record.continuesAfterDeath = normalizeContinuesAfterDeath(record.continuesAfterDeath);
       if (record.typeKey === "primaryResidence") {
         record.primaryResidenceArrangement = normalizePrimaryResidenceArrangement(record.primaryResidenceArrangement);
       } else {

@@ -136,6 +136,7 @@ assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), 
 assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
 assert(moduleSource.includes("PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS"), "Primary residence arrangement options are missing.");
 assert(moduleSource.includes("primaryResidenceArrangement"), "Primary residence arrangement key is missing.");
+assert(moduleSource.includes("normalizeContinuesAfterDeath"), "Continues-after-death normalizer is missing.");
 assert(moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Removed escrow field sanitizer is missing.");
 assert(moduleSource.includes("omitRemovedEscrowFields"), "Escrow field omission helper is missing.");
 assert(moduleSource.includes("controller.records.map(serializeHousingRecord)"), "Housing Records serialization does not use the safe record serializer.");
@@ -221,6 +222,32 @@ const arrangementLabels = housingRecordsApi.primaryResidenceArrangementOptions.m
 ].forEach((label) => {
   assert(arrangementLabels.includes(label), `Exported Primary Residence arrangement ${label} is missing.`);
 });
+
+const continuesOptionsMatch = moduleSource.match(/const CONTINUES_AFTER_DEATH_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert(continuesOptionsMatch, "Could not inspect continues-after-death options.");
+assert(continuesOptionsMatch[1].includes('value: "yes"'), "Continues-after-death options should include Yes.");
+assert(continuesOptionsMatch[1].includes('value: "no"'), "Continues-after-death options should include No.");
+assert(!continuesOptionsMatch[1].includes('value: "review"'), "Continues-after-death options should not include Review.");
+assert(!continuesOptionsMatch[1].includes('label: "Review"'), "Continues-after-death options should not show Review.");
+
+const defaultContinuesRecord = housingRecordsApi.createHousingRecord({ typeKey: "primaryResidence" });
+assert(defaultContinuesRecord.continuesAfterDeath === "yes", "Housing record continuesAfterDeath should default to yes.");
+const staleReviewContinuesRecord = housingRecordsApi.createHousingRecord({ typeKey: "primaryResidence", continuesAfterDeath: "review" });
+assert(staleReviewContinuesRecord.continuesAfterDeath === "yes", "Stale housing record Review continuesAfterDeath should sanitize to yes.");
+const noContinuesRecord = housingRecordsApi.createHousingRecord({ typeKey: "primaryResidence", continuesAfterDeath: "no" });
+assert(noContinuesRecord.continuesAfterDeath === "no", "Housing record continuesAfterDeath should preserve no.");
+const securedDebtContinuesRecord = housingRecordsApi.createHousingRecord({
+  typeKey: "primaryResidence",
+  primaryResidenceArrangement: "ownWithMortgage",
+  propertySecuredDebts: [
+    { debtType: "heloc" },
+    { debtType: "secondMortgage", continuesAfterDeath: "review" },
+    { debtType: "homeEquityLoan", continuesAfterDeath: "no" }
+  ]
+});
+assert(securedDebtContinuesRecord.propertySecuredDebts[0].continuesAfterDeath === "yes", "Property-secured debt continuesAfterDeath should default to yes.");
+assert(securedDebtContinuesRecord.propertySecuredDebts[1].continuesAfterDeath === "yes", "Stale property-secured debt Review continuesAfterDeath should sanitize to yes.");
+assert(securedDebtContinuesRecord.propertySecuredDebts[2].continuesAfterDeath === "no", "Property-secured debt continuesAfterDeath should preserve no.");
 
 [
   ["primaryResidenceMortgage", "ownWithMortgage"],
