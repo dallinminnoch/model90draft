@@ -2977,7 +2977,6 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   --pmi-rail-sticky-top: calc(var(--workspace-topbar-height, 3.1rem) + 3.35rem);
   --pmi-rail-sticky-align-offset: 20px;
   --pmi-rail-sticky-effective-top: calc(var(--pmi-rail-sticky-top) - var(--pmi-rail-sticky-align-offset));
-  --pmi-section-card-min-height: calc(100dvh - var(--workspace-topbar-height, 2.2rem) - 6.2rem);
   --pmi-side-widget-bottom-gap: clamp(0.75rem, 1.35vw, 1rem);
   display: grid;
   grid-template-columns: minmax(16rem, 17.5rem) minmax(0, 1fr) minmax(16.8rem, 18.5rem);
@@ -3407,7 +3406,7 @@ body[data-page="next-step"] .pmi-cashflow-rail {
   border-radius: 0.65rem 0.65rem 0 0;
   box-shadow: var(--m90-shadow);
   overflow: auto;
-  background: var(--m90-surface);
+  background: var(--m90-bg);
   scrollbar-color: var(--m90-border) transparent;
   scrollbar-width: thin;
 }
@@ -3441,19 +3440,6 @@ body[data-page="next-step"] .pmi-form-main .profile-form-section {
   border-radius: 0;
   background: var(--m90-surface);
   box-shadow: none;
-}
-
-body[data-page="next-step"] .pmi-form-main #pmi-income,
-body[data-page="next-step"] .pmi-form-main #pmi-housing,
-body[data-page="next-step"] .pmi-form-main #pmi-debts,
-body[data-page="next-step"] .pmi-form-main #pmi-expenses,
-body[data-page="next-step"] .pmi-form-main #pmi-savings-habits,
-body[data-page="next-step"] .pmi-form-main #pmi-assets,
-body[data-page="next-step"] .pmi-form-main #pmi-coverage,
-body[data-page="next-step"] .pmi-form-main #pmi-survivor,
-body[data-page="next-step"] .pmi-form-main #pmi-education,
-body[data-page="next-step"] .pmi-form-main #pmi-final {
-  min-height: var(--pmi-section-card-min-height);
 }
 
 body[data-page="next-step"] .pmi-form-main .profile-form-section-heading {

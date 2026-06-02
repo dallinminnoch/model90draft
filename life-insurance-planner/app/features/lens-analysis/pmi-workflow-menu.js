@@ -570,11 +570,45 @@
   }
 
   function getWorkflowMenuScrollRoot(doc, win) {
+    const pmiFormMain = doc.querySelector(".pmi-form-main");
+    if (pmiFormMain) {
+      return pmiFormMain;
+    }
     const pane = doc.querySelector(".lens-workflow-pane");
     if (pane && pane.scrollHeight > pane.clientHeight) {
       return pane;
     }
     return doc.scrollingElement || win;
+  }
+
+  function isElementScrollRoot(scrollRoot) {
+    return Boolean(scrollRoot && scrollRoot.nodeType === 1);
+  }
+
+  function scrollWorkflowSectionIntoView(section, scrollRoot) {
+    if (!section || !scrollRoot) {
+      return;
+    }
+
+    if (isElementScrollRoot(scrollRoot)) {
+      const sectionRect = section.getBoundingClientRect();
+      const rootRect = scrollRoot.getBoundingClientRect();
+      scrollRoot.scrollTop += sectionRect.top - rootRect.top;
+      return;
+    }
+
+    if (typeof section.scrollIntoView === "function") {
+      section.scrollIntoView({ block: "start", inline: "nearest" });
+    }
+  }
+
+  function replaceWorkflowMenuHash(hash, win) {
+    if (!hash || !win || !win.history || typeof win.history.replaceState !== "function") {
+      return;
+    }
+
+    const nextUrl = `${win.location.pathname}${win.location.search}${hash}`;
+    win.history.replaceState(null, "", nextUrl);
   }
 
   function mountPmiWorkflowMenuScrollSpy(options = {}) {
@@ -612,12 +646,34 @@
     };
 
     entries.forEach(({ key, link }) => {
-      link.addEventListener("click", () => {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
         setActivePmiWorkflowMenuSection(key, doc);
+        const href = link.getAttribute("href") || "";
+        const targetEntry = entries.find((entry) => entry.key === key);
+        if (targetEntry) {
+          scrollWorkflowSectionIntoView(targetEntry.section, scrollRoot);
+        }
+        replaceWorkflowMenuHash(href, win);
       });
     });
     scrollRoot.addEventListener("scroll", scheduleUpdate, { passive: true });
     win.addEventListener("resize", scheduleUpdate, { passive: true });
+    const syncLocationHashTarget = () => {
+      if (!win.location || !win.location.hash) {
+        return;
+      }
+      const targetEntry = entries.find((entry) => `#${entry.section.id}` === win.location.hash);
+      if (targetEntry) {
+        scrollWorkflowSectionIntoView(targetEntry.section, scrollRoot);
+      }
+    };
+
+    syncLocationHashTarget();
+    if (typeof win.requestAnimationFrame === "function") {
+      win.requestAnimationFrame(syncLocationHashTarget);
+    }
+    win.addEventListener("load", syncLocationHashTarget, { passive: true });
     updateActiveSection();
 
     return {
@@ -629,6 +685,7 @@
         }
         scrollRoot.removeEventListener("scroll", scheduleUpdate);
         win.removeEventListener("resize", scheduleUpdate);
+        win.removeEventListener("load", syncLocationHashTarget);
       }
     };
   }

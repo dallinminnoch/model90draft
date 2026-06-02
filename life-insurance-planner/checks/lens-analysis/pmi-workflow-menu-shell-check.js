@@ -169,11 +169,12 @@ const html = workflowMenu.renderPmiWorkflowMenu({
 });
 
 const workflowMenuShellRule = getCssRule(componentsCss, ".pmi-workflow-menu");
+const workflowMenuShellSizingRule = getCssRule(componentsCss, 'body[data-page="next-step"] .pmi-workflow-menu');
 assert.doesNotMatch(workflowMenuShellRule, /background:\s*#[0-9a-fA-F]{3,6};/, "Workflow menu shell should not use a hardcoded dark card background.");
 assert.doesNotMatch(workflowMenuShellRule, /linear-gradient/, "Workflow menu shell should stay white/theme-token based, not a dark gradient.");
 assert.match(workflowMenuShellRule, /background:\s*var\(--m90-surface\);/, "Workflow menu shell should use the current theme surface.");
-assert.match(workflowMenuShellRule, /height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 1\.85rem\);/, "Workflow menu shell should use the same viewport-height sizing increment as the cash-flow rail.");
-assert.match(workflowMenuShellRule, /max-height:\s*calc\(100dvh - var\(--pmi-rail-sticky-top\) - 1\.85rem\);/, "Workflow menu shell should cap itself with the same viewport-height sizing increment as the cash-flow rail.");
+assert.match(workflowMenuShellSizingRule, /height:\s*calc\(100% - var\(--pmi-side-widget-bottom-gap\)\);/, "Workflow menu shell should use the same page-relative sizing increment as the cash-flow rail.");
+assert.match(workflowMenuShellSizingRule, /max-height:\s*calc\(100% - var\(--pmi-side-widget-bottom-gap\)\);/, "Workflow menu shell should cap itself with the same page-relative sizing increment as the cash-flow rail.");
 assert.match(workflowMenuShellRule, /overflow:\s*hidden;/, "Workflow menu shell should contain its autosized rail content.");
 
 const workflowMenuItemRule = getCssRule(componentsCss, ".pmi-workflow-menu-item");
