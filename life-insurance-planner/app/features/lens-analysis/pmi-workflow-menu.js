@@ -3,8 +3,8 @@
   const lensAnalysis = LensApp.lensAnalysis || (LensApp.lensAnalysis = {});
 
   // Owner: PMI workflow menu shell.
-  // Purpose: define the left-menu structure and section-highlight behavior.
-  // Non-goals: no attestation/storage reads, no progress math, and no analysis output.
+  // Purpose: define the left-menu structure, section-highlight behavior, and attestation status display.
+  // Non-goals: no storage reads, no progress persistence, and no analysis output.
 
   const PMI_WORKFLOW_MENU_VERSION = "pmi-workflow-menu-shell-v1";
 
@@ -22,6 +22,7 @@
     notStarted: "Not started"
   });
   const PMI_WORKFLOW_MENU_ACTIVE_LABEL = "In progress";
+  const PMI_WORKFLOW_MENU_CHECK_ICON_SRC = "../Images/home/check.svg";
 
   const PMI_WORKFLOW_MENU_GROUPS = Object.freeze([
     Object.freeze({
@@ -122,6 +123,19 @@
     })
   ]);
 
+  const PMI_WORKFLOW_MENU_ATTESTATION_FIELD_BY_SECTION = Object.freeze({
+    income: "pmiIncomeSectionAccuracy",
+    housing: "pmiHousingSectionAccuracy",
+    debts: "pmiDebtsSectionAccuracy",
+    expenses: "pmiExpensesSectionAccuracy",
+    savingsHabits: "pmiSavingsHabitsSectionAccuracy",
+    assets: "pmiAssetsSectionAccuracy",
+    existingCoverage: "pmiCoverageSectionAccuracy",
+    survivorNeeds: "pmiSurvivorSectionAccuracy",
+    education: "pmiEducationSectionAccuracy",
+    finalExpenses: "pmiFinalSectionAccuracy"
+  });
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -164,15 +178,18 @@
     return rows.filter((row) => row.status === status).length;
   }
 
+  function getStatusLabel(status) {
+    return PMI_WORKFLOW_MENU_STATUS_LABELS[normalizeStatus(status)];
+  }
+
   function buildPmiWorkflowMenuModel(input) {
     const source = input && typeof input === "object" ? input : {};
     const currentSectionKey = normalizeCurrentSectionKey(source.currentSectionKey);
     const rows = buildSectionRows(source.sectionStatusByKey, currentSectionKey);
     const completedCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.COMPLETE);
-    const reviewedCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.COMPLETE)
-      + countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.IN_PROGRESS);
     const attentionCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.NEEDS_ATTENTION);
     const notStartedCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.NOT_STARTED);
+    const reviewedCount = completedCount + attentionCount;
     const remainingCount = countSectionsByStatus(rows, PMI_WORKFLOW_MENU_STATUSES.IN_PROGRESS)
       + notStartedCount;
 
@@ -207,12 +224,12 @@
   function renderStatusIcon(row) {
     const label = escapeHtml(row.statusLabel);
     if (row.status === PMI_WORKFLOW_MENU_STATUSES.COMPLETE) {
-      return `<span class="pmi-workflow-menu-status pmi-workflow-menu-status--complete" aria-label="${label}"></span>`;
+      return `<span class="pmi-workflow-menu-status pmi-workflow-menu-status--complete" aria-label="${label}" data-pmi-workflow-menu-status-icon><img class="pmi-workflow-menu-check-icon" src="${escapeHtml(PMI_WORKFLOW_MENU_CHECK_ICON_SRC)}" alt="" aria-hidden="true"></span>`;
     }
     if (row.status === PMI_WORKFLOW_MENU_STATUSES.NEEDS_ATTENTION) {
-      return `<span class="pmi-workflow-menu-status pmi-workflow-menu-status--attention" aria-label="${label}"></span>`;
+      return `<span class="pmi-workflow-menu-status pmi-workflow-menu-status--attention" aria-label="${label}" data-pmi-workflow-menu-status-icon></span>`;
     }
-    return `<span class="pmi-workflow-menu-status pmi-workflow-menu-status--empty" aria-label="${label}"></span>`;
+    return `<span class="pmi-workflow-menu-status pmi-workflow-menu-status--empty" aria-label="${label}" data-pmi-workflow-menu-status-icon></span>`;
   }
 
   function renderProgressSegments(model) {
@@ -259,7 +276,6 @@
     return `
       <aside class="pmi-workflow-menu" data-pmi-workflow-menu-shell data-pmi-workflow-menu-version="${escapeHtml(model.version)}" aria-label="Protection Modeling Inputs workflow">
         <header class="pmi-workflow-menu-header">
-          <span class="pmi-workflow-menu-kicker">Protection Modeling Inputs</span>
           <div class="pmi-workflow-menu-progress-copy">
             <span>Workflow Progress</span>
             <strong>${escapeHtml(model.progress.reviewedCount)} <span>of ${escapeHtml(model.progress.totalCount)} sections reviewed</span></strong>
@@ -273,15 +289,15 @@
           <div class="pmi-workflow-menu-group-title"><span>Workflow Insights</span></div>
           <div class="pmi-workflow-menu-insight-row">
             <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--complete" aria-hidden="true"></span>
-            <span><small>Sections completed</small><strong>${escapeHtml(formatSectionCount(model.insights.completedCount, "completed"))}</strong></span>
+            <span data-pmi-workflow-menu-insight="completed"><small>Sections completed</small><strong>${escapeHtml(formatSectionCount(model.insights.completedCount, "completed"))}</strong></span>
           </div>
           <div class="pmi-workflow-menu-insight-row">
             <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--empty" aria-hidden="true"></span>
-            <span><small>Sections remaining</small><strong>${escapeHtml(formatSectionCount(model.insights.remainingCount, "remaining"))}</strong></span>
+            <span data-pmi-workflow-menu-insight="remaining"><small>Sections remaining</small><strong>${escapeHtml(formatSectionCount(model.insights.remainingCount, "remaining"))}</strong></span>
           </div>
           <div class="pmi-workflow-menu-insight-row">
             <span class="pmi-workflow-menu-insight-icon pmi-workflow-menu-insight-icon--attention" aria-hidden="true"></span>
-            <span><small>Sections marked for review</small><strong>${escapeHtml(formatSectionCount(model.insights.reviewCount, "marked for review"))}</strong></span>
+            <span data-pmi-workflow-menu-insight="review"><small>Sections marked for review</small><strong>${escapeHtml(formatSectionCount(model.insights.reviewCount, "marked for review"))}</strong></span>
           </div>
         </section>
       </aside>
@@ -348,6 +364,182 @@
     });
 
     return didActivate;
+  }
+
+  function getStatusFromAttestationValue(value) {
+    const normalizedValue = String(value || "").trim().toLowerCase();
+    if (normalizedValue === "yes") {
+      return PMI_WORKFLOW_MENU_STATUSES.COMPLETE;
+    }
+    if (normalizedValue === "review") {
+      return PMI_WORKFLOW_MENU_STATUSES.NEEDS_ATTENTION;
+    }
+    return PMI_WORKFLOW_MENU_STATUSES.NOT_STARTED;
+  }
+
+  function getCheckedAttestationValue(doc, fieldName) {
+    const selectedInput = doc.querySelector(`input[name="${fieldName}"]:checked`);
+    return selectedInput ? selectedInput.value : "";
+  }
+
+  function readPmiWorkflowMenuAttestationStatuses(doc = global.document) {
+    const statuses = {};
+    if (!doc || typeof doc.querySelector !== "function") {
+      return statuses;
+    }
+
+    Object.entries(PMI_WORKFLOW_MENU_ATTESTATION_FIELD_BY_SECTION).forEach(([sectionKey, fieldName]) => {
+      statuses[sectionKey] = getStatusFromAttestationValue(getCheckedAttestationValue(doc, fieldName));
+    });
+
+    return statuses;
+  }
+
+  function ensureCompleteCheckIcon(statusIcon, doc) {
+    if (!statusIcon || !doc) {
+      return;
+    }
+    if (statusIcon.querySelector(".pmi-workflow-menu-check-icon")) {
+      return;
+    }
+    const icon = doc.createElement("img");
+    icon.className = "pmi-workflow-menu-check-icon";
+    icon.src = PMI_WORKFLOW_MENU_CHECK_ICON_SRC;
+    icon.alt = "";
+    icon.setAttribute("aria-hidden", "true");
+    statusIcon.appendChild(icon);
+  }
+
+  function setWorkflowMenuStatusIcon(statusIcon, status, doc) {
+    if (!statusIcon) {
+      return;
+    }
+
+    const normalizedStatus = normalizeStatus(status);
+    statusIcon.classList.remove(
+      "pmi-workflow-menu-status--complete",
+      "pmi-workflow-menu-status--attention",
+      "pmi-workflow-menu-status--empty"
+    );
+    statusIcon.classList.add(
+      normalizedStatus === PMI_WORKFLOW_MENU_STATUSES.COMPLETE
+        ? "pmi-workflow-menu-status--complete"
+        : normalizedStatus === PMI_WORKFLOW_MENU_STATUSES.NEEDS_ATTENTION
+          ? "pmi-workflow-menu-status--attention"
+          : "pmi-workflow-menu-status--empty"
+    );
+    statusIcon.setAttribute("aria-label", getStatusLabel(normalizedStatus));
+    statusIcon.querySelector(".pmi-workflow-menu-check-icon")?.remove();
+    if (normalizedStatus === PMI_WORKFLOW_MENU_STATUSES.COMPLETE) {
+      ensureCompleteCheckIcon(statusIcon, doc);
+    }
+  }
+
+  function getWorkflowMenuStatusCounts(doc) {
+    const links = getWorkflowMenuLinks(doc);
+    const counts = {
+      totalCount: links.length,
+      completedCount: 0,
+      reviewCount: 0,
+      remainingCount: 0
+    };
+
+    links.forEach((link) => {
+      const status = normalizeStatus(link.getAttribute("data-pmi-workflow-menu-status"));
+      if (status === PMI_WORKFLOW_MENU_STATUSES.COMPLETE) {
+        counts.completedCount += 1;
+      } else if (status === PMI_WORKFLOW_MENU_STATUSES.NEEDS_ATTENTION) {
+        counts.reviewCount += 1;
+      } else {
+        counts.remainingCount += 1;
+      }
+    });
+
+    return counts;
+  }
+
+  function updateWorkflowMenuProgress(statusCounts, doc) {
+    const reviewedCount = statusCounts.completedCount + statusCounts.reviewCount;
+    const progressCopy = doc.querySelector(".pmi-workflow-menu-progress-copy strong");
+    const progressSegments = Array.from(doc.querySelectorAll(".pmi-workflow-menu-progress-segment"));
+    if (progressCopy) {
+      progressCopy.innerHTML = `${escapeHtml(reviewedCount)} <span>of ${escapeHtml(statusCounts.totalCount)} sections reviewed</span>`;
+    }
+    progressSegments.forEach((segment, index) => {
+      segment.classList.toggle("is-filled", index < reviewedCount);
+    });
+  }
+
+  function updateWorkflowMenuInsights(statusCounts, doc) {
+    const insightValues = {
+      completed: formatSectionCount(statusCounts.completedCount, "completed"),
+      remaining: formatSectionCount(statusCounts.remainingCount, "remaining"),
+      review: formatSectionCount(statusCounts.reviewCount, "marked for review")
+    };
+
+    Object.entries(insightValues).forEach(([key, text]) => {
+      const value = doc.querySelector(`[data-pmi-workflow-menu-insight="${key}"] strong`);
+      if (value) {
+        value.textContent = text;
+      }
+    });
+  }
+
+  function syncPmiWorkflowMenuAttestationStatuses(doc = global.document) {
+    if (!doc) {
+      return false;
+    }
+
+    const statuses = readPmiWorkflowMenuAttestationStatuses(doc);
+    let didSync = false;
+    getWorkflowMenuLinks(doc).forEach((link) => {
+      const sectionKey = link.getAttribute("data-pmi-workflow-menu-section");
+      if (!Object.prototype.hasOwnProperty.call(statuses, sectionKey)) {
+        return;
+      }
+
+      const status = normalizeStatus(statuses[sectionKey]);
+      link.setAttribute("data-pmi-workflow-menu-status", status);
+      setWorkflowMenuStatusIcon(link.querySelector("[data-pmi-workflow-menu-status-icon]"), status, doc);
+      didSync = true;
+    });
+
+    if (didSync) {
+      const statusCounts = getWorkflowMenuStatusCounts(doc);
+      updateWorkflowMenuProgress(statusCounts, doc);
+      updateWorkflowMenuInsights(statusCounts, doc);
+    }
+    return didSync;
+  }
+
+  function mountPmiWorkflowMenuAttestationStatus(options = {}) {
+    const doc = options.document || global.document;
+    if (!doc || typeof doc.querySelectorAll !== "function") {
+      return null;
+    }
+
+    const attestationInputs = Object.values(PMI_WORKFLOW_MENU_ATTESTATION_FIELD_BY_SECTION)
+      .flatMap((fieldName) => Array.from(doc.querySelectorAll(`input[name="${fieldName}"]`)));
+    if (!attestationInputs.length) {
+      return null;
+    }
+
+    const syncStatuses = () => {
+      syncPmiWorkflowMenuAttestationStatuses(doc);
+    };
+    attestationInputs.forEach((input) => {
+      input.addEventListener("change", syncStatuses);
+    });
+    syncStatuses();
+
+    return {
+      refresh: syncStatuses,
+      destroy() {
+        attestationInputs.forEach((input) => {
+          input.removeEventListener("change", syncStatuses);
+        });
+      }
+    };
   }
 
   function isScrollRootAtEnd(scrollRoot) {
@@ -449,7 +641,10 @@
     buildPmiWorkflowMenuModel,
     renderPmiWorkflowMenu,
     setActivePmiWorkflowMenuSection,
-    mountPmiWorkflowMenuScrollSpy
+    mountPmiWorkflowMenuScrollSpy,
+    readPmiWorkflowMenuAttestationStatuses,
+    syncPmiWorkflowMenuAttestationStatuses,
+    mountPmiWorkflowMenuAttestationStatus
   };
 
   if (typeof module !== "undefined" && module.exports) {
@@ -461,7 +656,10 @@
       buildPmiWorkflowMenuModel,
       renderPmiWorkflowMenu,
       setActivePmiWorkflowMenuSection,
-      mountPmiWorkflowMenuScrollSpy
+      mountPmiWorkflowMenuScrollSpy,
+      readPmiWorkflowMenuAttestationStatuses,
+      syncPmiWorkflowMenuAttestationStatuses,
+      mountPmiWorkflowMenuAttestationStatus
     };
   }
 })(typeof globalThis !== "undefined" ? globalThis : this);
