@@ -153,7 +153,7 @@
     monthlyMaintenanceRecommendation: Object.freeze({ label: "Recommended Maintenance / Repairs", type: "calculatedCurrency" }),
     mortgageTermRemainingYears: Object.freeze({ label: "Remaining Term Years", type: "number", step: "1", suffix: "Years" }),
     mortgageTermRemainingMonths: Object.freeze({ label: "Remaining Term Months", type: "number", step: "1", max: "11", suffix: "Months" }),
-    monthlyMortgagePaymentOnly: Object.freeze({ label: "Calculated Main Mortgage Payment", type: "calculatedCurrency" }),
+    monthlyMortgagePaymentOnly: Object.freeze({ label: "Calculated Mortgage Payment", type: "calculatedCurrency" }),
     associatedMonthlyCosts: Object.freeze({ label: "Associated Monthly Costs", type: "calculatedCurrency" }),
     calculatedMonthlyMortgagePayment: Object.freeze({ label: "Calculated Monthly Burden", type: "calculatedCurrency" }),
     rentMonthly: Object.freeze({ label: "Monthly Rent", type: "number", step: "50", suffix: "USD" }),
@@ -646,22 +646,22 @@
 
     if (isMainMortgageRecord) {
       if (fieldKey === "currentBalance" || fieldKey === "mortgageBalance") {
-        return "Main Mortgage Balance";
+        return "Mortgage Balance";
       }
       if (fieldKey === "monthlyPayment") {
-        return "Main Mortgage Principal & Interest Payment";
+        return "Mortgage Principal & Interest Payment";
       }
       if (fieldKey === "interestRatePercent") {
-        return "Main Mortgage Interest Rate";
+        return "Mortgage Interest Rate";
       }
       if (fieldKey === "remainingTermMonths") {
-        return "Main Mortgage Remaining Term";
+        return "Mortgage Remaining Term";
       }
       if (fieldKey === "mortgageTermRemainingYears") {
-        return "Main Mortgage Remaining Term Years";
+        return "Mortgage Remaining Term Years";
       }
       if (fieldKey === "mortgageTermRemainingMonths") {
-        return "Main Mortgage Remaining Term Months";
+        return "Mortgage Remaining Term Months";
       }
     }
 

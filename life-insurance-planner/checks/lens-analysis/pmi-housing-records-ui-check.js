@@ -141,11 +141,12 @@ assert(!moduleSource.includes('label: "Escrowed"'), "Escrowed option label shoul
 assert(!moduleSource.includes('label: "Not Escrowed"'), "Not Escrowed option label should not remain visible.");
 assert(!moduleSource.includes("Costs Included"), "Costs-included payment label should not remain visible.");
 assert(!moduleSource.includes("Included in Payment"), "Included-in-payment label should not remain visible.");
-assert(moduleSource.includes("Main Mortgage Balance"), "Main mortgage balance label is missing.");
-assert(moduleSource.includes("Main Mortgage Principal & Interest Payment"), "Main mortgage principal-and-interest payment label is missing.");
-assert(moduleSource.includes("Main Mortgage Interest Rate"), "Main mortgage interest rate label is missing.");
-assert(moduleSource.includes("Main Mortgage Remaining Term"), "Main mortgage remaining term label is missing.");
-assert(moduleSource.includes("Calculated Main Mortgage Payment"), "Calculated main mortgage payment display label is missing.");
+assert(!moduleSource.includes("Main Mortgage"), "Main mortgage wording should not remain in visible labels.");
+assert(moduleSource.includes("Mortgage Balance"), "Mortgage balance label is missing.");
+assert(moduleSource.includes("Mortgage Principal & Interest Payment"), "Mortgage principal-and-interest payment label is missing.");
+assert(moduleSource.includes("Mortgage Interest Rate"), "Mortgage interest rate label is missing.");
+assert(moduleSource.includes("Mortgage Remaining Term"), "Mortgage remaining term label is missing.");
+assert(moduleSource.includes("Calculated Mortgage Payment"), "Calculated mortgage payment display label is missing.");
 assert(moduleSource.includes("Debt Balance"), "Nested secured debt balance label is missing.");
 assert(moduleSource.includes("Debt Monthly Payment"), "Nested secured debt monthly payment label is missing.");
 assert(moduleSource.includes("Debt Interest Rate"), "Nested secured debt interest rate label is missing.");
