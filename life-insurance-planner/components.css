@@ -2978,6 +2978,7 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
   --pmi-rail-sticky-align-offset: 20px;
   --pmi-rail-sticky-effective-top: calc(var(--pmi-rail-sticky-top) - var(--pmi-rail-sticky-align-offset));
   --pmi-section-card-min-height: calc(100dvh - var(--workspace-topbar-height, 2.2rem) - 6.2rem);
+  --pmi-side-widget-bottom-gap: clamp(0.75rem, 1.35vw, 1rem);
   display: grid;
   grid-template-columns: minmax(16rem, 17.5rem) minmax(0, 1fr) minmax(16.8rem, 18.5rem);
   gap: clamp(1.3rem, 2.1vw, 2rem);
@@ -3000,13 +3001,17 @@ body[data-page="next-step"] .prospect-panel-header .confidential-calculator-togg
 body[data-page="next-step"] .pmi-workflow-menu {
   position: static;
   top: auto;
-  align-self: stretch;
+  align-self: start;
+  height: calc(100% - var(--pmi-side-widget-bottom-gap));
+  max-height: calc(100% - var(--pmi-side-widget-bottom-gap));
 }
 
 body[data-page="next-step"] .pmi-cashflow-rail {
   position: relative;
   top: auto;
-  align-self: stretch;
+  align-self: start;
+  height: calc(100% - var(--pmi-side-widget-bottom-gap));
+  max-height: calc(100% - var(--pmi-side-widget-bottom-gap));
 }
 
 .pmi-section-nav {
@@ -3399,7 +3404,7 @@ body[data-page="next-step"] .pmi-cashflow-rail {
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--m90-border);
-  border-radius: 0.65rem;
+  border-radius: 0.65rem 0.65rem 0 0;
   box-shadow: var(--m90-shadow);
   overflow: auto;
   background: var(--m90-surface);
