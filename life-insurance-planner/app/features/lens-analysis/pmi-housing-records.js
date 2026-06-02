@@ -36,7 +36,6 @@
   ]);
 
   const PROPERTY_SECURED_DEBT_TYPE_OPTIONS = Object.freeze([
-    Object.freeze({ value: "firstMortgage", label: "First Mortgage" }),
     Object.freeze({ value: "secondMortgage", label: "Second Mortgage" }),
     Object.freeze({ value: "heloc", label: "HELOC" }),
     Object.freeze({ value: "homeEquityLoan", label: "Home Equity Loan" }),
@@ -403,6 +402,9 @@
 
   function normalizePropertySecuredDebtType(value) {
     const normalizedValue = normalizeString(value);
+    if (normalizedValue === "firstMortgage") {
+      return "otherPropertySecuredDebt";
+    }
     if (normalizedValue === "secondMortgageHeloc") {
       return "secondMortgage";
     }
@@ -842,8 +844,8 @@
       <section class="pmi-property-secured-debts-section" data-pmi-property-secured-debts-section>
         <div class="pmi-property-secured-debts-header">
           <div>
-            <span class="pmi-housing-records-kicker">Property-Secured Debts</span>
-            <h4>Property-Secured Debts</h4>
+            <span class="pmi-housing-records-kicker">Additional Property-Secured Debts</span>
+            <h4>Additional Property-Secured Debts</h4>
           </div>
           <button class="pmi-housing-records-add-button" type="button" data-pmi-property-secured-debt-add>Add Secured Debt</button>
         </div>

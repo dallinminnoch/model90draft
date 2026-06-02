@@ -167,7 +167,6 @@ assert(fieldGroupsMatch, "Could not inspect top-level Housing Record field group
 assert(!fieldGroupsMatch[1].includes("secondMortgageHeloc:"), "Removed secondMortgageHeloc field group should not remain.");
 
 [
-  "firstMortgage",
   "secondMortgage",
   "heloc",
   "homeEquityLoan",
@@ -175,6 +174,14 @@ assert(!fieldGroupsMatch[1].includes("secondMortgageHeloc:"), "Removed secondMor
 ].forEach((debtType) => {
   assert(moduleSource.includes(`value: "${debtType}"`), `Property-secured debt type ${debtType} is missing.`);
 });
+const propertySecuredDebtOptionsMatch = moduleSource.match(/const PROPERTY_SECURED_DEBT_TYPE_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
+assert(propertySecuredDebtOptionsMatch, "Could not inspect property-secured debt type options.");
+assert(!propertySecuredDebtOptionsMatch[1].includes('value: "firstMortgage"'), "Nested property-secured debt picker should not include firstMortgage.");
+assert(!propertySecuredDebtOptionsMatch[1].includes('label: "First Mortgage"'), "Nested property-secured debt picker should not include First Mortgage.");
+assert(moduleSource.includes('normalizedValue === "firstMortgage"'), "Stale firstMortgage nested debts are not sanitized.");
+assert(moduleSource.includes('return "otherPropertySecuredDebt"'), "Stale firstMortgage nested debts should convert safely.");
+assert(moduleSource.includes("Additional Property-Secured Debts"), "Additional Property-Secured Debts section label is missing.");
+assert(!moduleSource.includes(">Property-Secured Debts<"), "Old Property-Secured Debts section label should not remain visible.");
 
 [
   "primaryResidenceMortgage",
