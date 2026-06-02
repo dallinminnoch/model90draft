@@ -519,7 +519,7 @@ assert.equal(savingsController.lastMonthlyCashFlow.remainingAfterSavings, 48175.
 assert.equal(savingsDom.cashFlow.elements.savings.textContent, "$1,000");
 assert.equal(savingsDom.cashFlow.elements.remaining.textContent, "$48,175.07");
 assert.equal(savingsDom.cashFlow.elements.status.textContent, "After planned savings");
-assert.match(savingsDom.cashFlow.elements.note.textContent, /Planned savings are applied after housing, debt, and lifestyle expenses\./);
+assert.equal(savingsDom.cashFlow.elements.note.textContent, "");
 
 const overSavingsDom = createFakeRoot();
 const overSavingsController = pmiExpenseRecords.initPmiExpenseRecords({

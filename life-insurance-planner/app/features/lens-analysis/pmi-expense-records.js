@@ -1817,9 +1817,10 @@
       elements.bar.classList.toggle("is-negative", cashFlow.isNegative);
       elements.bar.classList.toggle("is-missing-income", !cashFlow.hasIncomeSource);
 
-      const notes = [cashFlow.monthlyPlannedSavings > 0
-        ? "Planned savings are applied after housing, debt, and lifestyle expenses."
-        : "No planned savings entered."];
+      const notes = [];
+      if (cashFlow.monthlyPlannedSavings <= 0) {
+        notes.push("No planned savings entered.");
+      }
       if (!cashFlow.hasIncomeSource) {
         notes.push("Take-home pay is not available from current PMI income fields.");
       }
