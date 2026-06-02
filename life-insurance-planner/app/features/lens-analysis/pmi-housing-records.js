@@ -421,23 +421,6 @@
     );
   }
 
-  function derivePropertyRole(recordOrTypeKey) {
-    const typeKey = typeof recordOrTypeKey === "string"
-      ? getTypeConfig(recordOrTypeKey).value
-      : getTypeConfig(recordOrTypeKey?.typeKey).value;
-
-    const roleByType = {
-      primaryResidence: "primaryResidence",
-      secondHomeVacationProperty: "secondaryResidence",
-      rentalInvestmentProperty: "investmentProperty",
-      temporaryHousing: "temporaryHousing",
-      housingOperatingCostOnly: "other",
-      otherHousingObligation: "other"
-    };
-
-    return roleByType[typeKey] || "other";
-  }
-
   function getPropertySecuredDebtTypeConfig(debtType) {
     return PROPERTY_SECURED_DEBT_TYPE_OPTIONS.find((option) => option.value === debtType)
       || PROPERTY_SECURED_DEBT_TYPE_OPTIONS[0];
@@ -473,6 +456,12 @@
     REMOVED_ESCROW_FIELD_KEYS.forEach((fieldKey) => {
       delete sanitized[fieldKey];
     });
+    return sanitized;
+  }
+
+  function omitRemovedHousingRecordFields(record) {
+    const sanitized = omitRemovedEscrowFields(record);
+    delete sanitized.propertyRole;
     return sanitized;
   }
 
@@ -632,7 +621,7 @@
   }
 
   function createHousingRecord(partialRecord) {
-    const source = migrateRemovedTopLevelSecuredDebtRecord(omitRemovedEscrowFields(partialRecord));
+    const source = migrateRemovedTopLevelSecuredDebtRecord(omitRemovedHousingRecordFields(partialRecord));
     const rawTypeKey = normalizeString(source.typeKey);
     const typeKey = LEGACY_PRIMARY_RESIDENCE_TYPE_ARRANGEMENTS[rawTypeKey]
       ? "primaryResidence"
@@ -652,14 +641,12 @@
       housingRecordId,
       typeKey,
       label,
-      propertyRole: derivePropertyRole(typeKey),
       continuesAfterDeath: normalizeContinuesAfterDeath(source.continuesAfterDeath),
       ...source,
       housingRecordId,
       typeKey,
       primaryResidenceArrangement,
       label,
-      propertyRole: derivePropertyRole(typeKey),
       continuesAfterDeath: normalizeContinuesAfterDeath(source.continuesAfterDeath),
       propertySecuredDebts
     };
@@ -671,8 +658,7 @@
 
   function serializeHousingRecord(record) {
     const sanitizedRecord = {
-      ...omitRemovedEscrowFields(record),
-      propertyRole: derivePropertyRole(record),
+      ...omitRemovedHousingRecordFields(record),
       continuesAfterDeath: normalizeContinuesAfterDeath(record?.continuesAfterDeath)
     };
     const typeKey = getTypeConfig(sanitizedRecord.typeKey).value;
@@ -684,10 +670,7 @@
         : sanitizedRecord.primaryResidenceArrangement
     };
     if (!supportsPropertySecuredDebts(recordForSupport)) {
-      const { propertySecuredDebts, ...recordWithoutSecuredDebts } = {
-        ...sanitizedRecord,
-        propertyRole: derivePropertyRole(typeKey)
-      };
+      const { propertySecuredDebts, ...recordWithoutSecuredDebts } = sanitizedRecord;
       if (typeKey !== "primaryResidence") {
         delete recordWithoutSecuredDebts.primaryResidenceArrangement;
       }
@@ -696,7 +679,6 @@
 
     const serializedRecord = {
       ...sanitizedRecord,
-      propertyRole: derivePropertyRole(typeKey),
       propertySecuredDebts: Array.isArray(sanitizedRecord.propertySecuredDebts)
         ? sanitizedRecord.propertySecuredDebts.map(createPropertySecuredDebt)
         : []
@@ -1066,7 +1048,7 @@
         record[fieldKey] = field.value;
       });
       record.typeKey = getTypeConfig(record.typeKey).value;
-      record.propertyRole = derivePropertyRole(record.typeKey);
+      delete record.propertyRole;
       record.continuesAfterDeath = normalizeContinuesAfterDeath(record.continuesAfterDeath);
       if (record.typeKey === "primaryResidence") {
         record.primaryResidenceArrangement = normalizePrimaryResidenceArrangement(record.primaryResidenceArrangement);

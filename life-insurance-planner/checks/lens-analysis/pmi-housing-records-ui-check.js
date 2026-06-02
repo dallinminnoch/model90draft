@@ -136,12 +136,13 @@ assert(moduleSource.includes("monthlyMaintenanceRecommendationManualOverride"), 
 assert(moduleSource.includes("HOME_SQUARE_FOOTAGE_OPTIONS"), "Legacy home square footage options are missing.");
 assert(moduleSource.includes("PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS"), "Primary residence arrangement options are missing.");
 assert(moduleSource.includes("primaryResidenceArrangement"), "Primary residence arrangement key is missing.");
-assert(moduleSource.includes("derivePropertyRole"), "Derived propertyRole helper is missing.");
+assert(!moduleSource.includes("derivePropertyRole"), "Derived propertyRole helper should not remain.");
 assert(moduleSource.includes("normalizeContinuesAfterDeath"), "Continues-after-death normalizer is missing.");
 assert(moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Removed escrow field sanitizer is missing.");
 assert(moduleSource.includes("omitRemovedEscrowFields"), "Escrow field omission helper is missing.");
+assert(moduleSource.includes("omitRemovedHousingRecordFields"), "Housing Record raw field omission helper is missing.");
 assert(moduleSource.includes("controller.records.map(serializeHousingRecord)"), "Housing Records serialization does not use the safe record serializer.");
-assert(/function serializeHousingRecord[\s\S]*omitRemovedEscrowFields/.test(moduleSource), "Housing Records serialization does not omit removed escrow fields.");
+assert(/function serializeHousingRecord[\s\S]*omitRemovedHousingRecordFields/.test(moduleSource), "Housing Records serialization does not omit removed raw fields.");
 assert(!/escrowStatus:\s*Object\.freeze/.test(moduleSource), "Escrow status field definition should not be rendered.");
 assert(!moduleSource.includes('"escrowStatus"') || moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Escrow status should only appear in the removed-field sanitizer.");
 assert(!moduleSource.includes('label: "Escrow Status"'), "Escrow Status label should not remain visible.");
@@ -166,6 +167,7 @@ assert(!moduleSource.includes("PROPERTY_ROLE_OPTIONS"), "Generic Property Role o
 assert(!moduleSource.includes('label: "Property Role"'), "Generic Property Role label should not remain visible.");
 assert(!moduleSource.includes('type: "propertyRole"'), "Generic Property Role field type should not remain visible.");
 assert(!moduleSource.includes('fieldConfig.type === "propertyRole"'), "Generic Property Role renderer should not remain.");
+assert(!moduleSource.includes("propertyRole:"), "propertyRole should not be written into Housing Records raw shapes.");
 
 const baseFieldsMatch = moduleSource.match(/const BASE_FIELDS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(baseFieldsMatch, "Could not inspect Housing Records base fields.");
@@ -236,23 +238,19 @@ const arrangementLabels = housingRecordsApi.primaryResidenceArrangementOptions.m
 });
 
 [
-  ["primaryResidence", "investmentProperty", "primaryResidence"],
-  ["secondHomeVacationProperty", "primaryResidence", "secondaryResidence"],
-  ["rentalInvestmentProperty", "primaryResidence", "investmentProperty"],
-  ["temporaryHousing", "primaryResidence", "temporaryHousing"],
-  ["housingOperatingCostOnly", "primaryResidence", "other"],
-  ["otherHousingObligation", "primaryResidence", "other"]
-].forEach(([typeKey, staleRole, expectedRole]) => {
-  const derivedRoleRecord = housingRecordsApi.createHousingRecord({ typeKey, propertyRole: staleRole });
+  "primaryResidence",
+  "secondHomeVacationProperty",
+  "rentalInvestmentProperty",
+  "temporaryHousing",
+  "housingOperatingCostOnly",
+  "otherHousingObligation"
+].forEach((typeKey) => {
+  const recordWithStaleRole = housingRecordsApi.createHousingRecord({ typeKey, propertyRole: "primaryResidence" });
   assert(
-    derivedRoleRecord.propertyRole === expectedRole,
-    `${typeKey} should derive propertyRole ${expectedRole}, got ${derivedRoleRecord.propertyRole}.`
+    !Object.prototype.hasOwnProperty.call(recordWithStaleRole, "propertyRole"),
+    `${typeKey} createHousingRecord should drop stale propertyRole.`
   );
 });
-assert(
-  /function serializeHousingRecord[\s\S]*propertyRole: derivePropertyRole/.test(moduleSource),
-  "Housing Records serialization should derive propertyRole instead of trusting stale raw values."
-);
 
 const continuesOptionsMatch = moduleSource.match(/const CONTINUES_AFTER_DEATH_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(continuesOptionsMatch, "Could not inspect continues-after-death options.");
