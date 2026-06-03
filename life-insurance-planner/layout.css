@@ -220,7 +220,7 @@ body[data-page="next-step"] .pmi-form-main .field-group.full-width {
 }
 
 body[data-page="next-step"] .pmi-form-main .field-group > label,
-body[data-page="next-step"] .pmi-form-main label:not(.settings-toggle-row):not(.analysis-setup-rate-label) {
+body[data-page="next-step"] .pmi-form-main label:not(.settings-toggle-row):not(.analysis-setup-rate-label):not(.pmi-housing-record-field) {
   display: inline-flex;
   align-items: center;
   gap: 5px;

@@ -2558,6 +2558,8 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 
 .pmi-housing-record-field {
   display: grid;
+  justify-self: stretch;
+  width: 100%;
   gap: 0.24rem;
   min-width: 0;
   color: var(--m90-text-secondary);
@@ -2566,6 +2568,11 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.25;
+}
+
+.pmi-housing-record-field > span {
+  display: block;
+  width: 100%;
 }
 
 .pmi-housing-record-field input,
