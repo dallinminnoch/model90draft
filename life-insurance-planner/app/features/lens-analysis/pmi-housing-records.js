@@ -48,8 +48,7 @@
   const CALCULATED_HOUSING_FIELD_KEYS = Object.freeze([
     "monthlyMaintenanceRecommendation",
     "monthlyMortgagePaymentOnly",
-    "associatedMonthlyCosts",
-    "calculatedMonthlyMortgagePayment"
+    "associatedMonthlyCosts"
   ]);
 
   const CALCULATION_SOURCE_FIELD_KEYS = Object.freeze([
@@ -85,6 +84,13 @@
 
   const REMOVED_TOP_LEVEL_MAINTENANCE_FIELD_KEYS = Object.freeze([
     "maintenanceMonthly"
+  ]);
+
+  const REMOVED_HOUSING_RECORD_FIELD_KEYS = Object.freeze([
+    "calculatedMonthlyMortgagePayment",
+    "calculatedMonthlyMortgagePaymentCalculatedValue",
+    "calculatedMonthlyMortgagePaymentManualOverride",
+    "calculatedMonthlyMortgagePaymentManualValue"
   ]);
 
   const REMOVED_TOP_LEVEL_SECURED_DEBT_TYPES = Object.freeze([
@@ -163,7 +169,6 @@
     mortgageTermRemainingMonths: Object.freeze({ label: "Remaining Term Months", type: "number", step: "1", max: "11", suffix: "Months" }),
     monthlyMortgagePaymentOnly: Object.freeze({ label: "Calculated Mortgage Payment", type: "calculatedCurrency" }),
     associatedMonthlyCosts: Object.freeze({ label: "Associated Monthly Costs", type: "calculatedCurrency" }),
-    calculatedMonthlyMortgagePayment: Object.freeze({ label: "Calculated Monthly Burden", type: "calculatedCurrency" }),
     rentMonthly: Object.freeze({ label: "Monthly Rent", type: "number", step: "50", suffix: "USD" }),
     leaseTermMonths: Object.freeze({ label: "Lease Term", type: "number", step: "1", suffix: "Months" }),
     otherHousingCostMonthly: Object.freeze({ label: "Other Housing Costs", type: "number", step: "25", suffix: "USD" }),
@@ -253,8 +258,7 @@
       "monthlyMaintenanceRecommendation",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
-      "associatedMonthlyCosts",
-      "calculatedMonthlyMortgagePayment"
+      "associatedMonthlyCosts"
     ]),
     rent: Object.freeze([
       "rentMonthly",
@@ -274,8 +278,7 @@
       "monthlyMaintenanceRecommendation",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
-      "associatedMonthlyCosts",
-      "calculatedMonthlyMortgagePayment"
+      "associatedMonthlyCosts"
     ])
   });
 
@@ -296,7 +299,6 @@
         "interestRatePercent",
         "mortgageTermRemainingYears",
         "mortgageTermRemainingMonths",
-        "monthlyMortgagePaymentOnly",
         "grossMonthlyRentReceived"
       ])
     }),
@@ -323,7 +325,7 @@
     Object.freeze({
       sectionKey: "summary",
       label: "Summary",
-      fields: Object.freeze(["associatedMonthlyCosts", "calculatedMonthlyMortgagePayment"])
+      fields: Object.freeze(["monthlyMortgagePaymentOnly", "associatedMonthlyCosts"])
     }),
     Object.freeze({
       sectionKey: "details",
@@ -344,8 +346,7 @@
       "monthlyMaintenanceRecommendation",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
-      "associatedMonthlyCosts",
-      "calculatedMonthlyMortgagePayment"
+      "associatedMonthlyCosts"
     ]),
     rentalInvestmentProperty: Object.freeze([
       "propertyValue",
@@ -359,8 +360,7 @@
       "monthlyMaintenanceRecommendation",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
-      "associatedMonthlyCosts",
-      "calculatedMonthlyMortgagePayment"
+      "associatedMonthlyCosts"
     ]),
     temporaryHousing: Object.freeze([
       "monthlyCost",
@@ -376,8 +376,7 @@
       "monthlyMaintenanceRecommendation",
       "utilitiesMonthly",
       "otherHousingCostMonthly",
-      "associatedMonthlyCosts",
-      "calculatedMonthlyMortgagePayment"
+      "associatedMonthlyCosts"
     ]),
     otherHousingObligation: Object.freeze([
       "monthlyCost",
@@ -542,6 +541,9 @@
     REMOVED_TOP_LEVEL_MAINTENANCE_FIELD_KEYS.forEach((fieldKey) => {
       delete sanitized[fieldKey];
     });
+    REMOVED_HOUSING_RECORD_FIELD_KEYS.forEach((fieldKey) => {
+      delete sanitized[fieldKey];
+    });
     return sanitized;
   }
 
@@ -658,9 +660,7 @@
       monthlyMaintenanceRecommendation: safeRecord.monthlyMaintenanceRecommendation,
       monthlyMaintenanceRecommendationManualOverride: safeRecord.monthlyMaintenanceRecommendationManualOverride,
       associatedMonthlyCosts: safeRecord.associatedMonthlyCosts,
-      associatedMonthlyCostsManualOverride: safeRecord.associatedMonthlyCostsManualOverride,
-      calculatedMonthlyMortgagePayment: safeRecord.calculatedMonthlyMortgagePayment,
-      calculatedMonthlyMortgagePaymentManualOverride: safeRecord.calculatedMonthlyMortgagePaymentManualOverride
+      associatedMonthlyCostsManualOverride: safeRecord.associatedMonthlyCostsManualOverride
     };
   }
 
@@ -685,8 +685,7 @@
     const valueByField = {
       monthlyMaintenanceRecommendation: values.calculatedMaintenanceRecommendation,
       monthlyMortgagePaymentOnly: values.calculatedMortgagePaymentOnly,
-      associatedMonthlyCosts: values.calculatedAssociatedMonthlyCosts,
-      calculatedMonthlyMortgagePayment: values.calculatedMonthlyHousingSupportCost
+      associatedMonthlyCosts: values.calculatedAssociatedMonthlyCosts
     };
 
     CALCULATED_HOUSING_FIELD_KEYS.forEach((fieldKey) => {

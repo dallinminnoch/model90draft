@@ -71,7 +71,6 @@ const requiredFieldKeys = [
   "mortgageTermRemainingMonths",
   "monthlyMortgagePaymentOnly",
   "associatedMonthlyCosts",
-  "calculatedMonthlyMortgagePayment",
   "propertySecuredDebts",
   "primaryResidenceArrangement",
   "debtType",
@@ -165,6 +164,7 @@ assert(!moduleSource.includes("Mortgage Principal & Interest Payment"), "Mortgag
 assert(moduleSource.includes("Mortgage Interest Rate"), "Mortgage interest rate label is missing.");
 assert(!moduleSource.includes("Mortgage Remaining Term"), "Mortgage remaining term labels should not remain visible.");
 assert(moduleSource.includes("Calculated Mortgage Payment"), "Calculated mortgage payment display label is missing.");
+assert(!moduleSource.includes("Calculated Monthly Burden"), "Calculated Monthly Burden should not remain visible.");
 assert(moduleSource.includes('label: "Monthly Property Tax"'), "Housing Records property tax label should say Monthly Property Tax.");
 assert(!moduleSource.includes('label: "Property Tax"'), "Housing Records property tax label should not be ambiguous.");
 assert(moduleSource.includes("Debt Balance"), "Nested secured debt balance label is missing.");
@@ -178,10 +178,15 @@ assert(moduleSource.includes("migrateRemovedTopLevelSecuredDebtRecord"), "Remove
 assert(moduleSource.includes("serializeHousingRecord"), "Housing Records serialization wrapper is missing.");
 const propertyMortgageSectionMatch = moduleSource.match(/sectionKey:\s*"propertyMortgage"[\s\S]*?fields:\s*Object\.freeze\(\[([\s\S]*?)\]\)/);
 const monthlyCostsSectionMatch = moduleSource.match(/sectionKey:\s*"monthlyCosts"[\s\S]*?fields:\s*Object\.freeze\(\[([\s\S]*?)\]\)/);
+const summarySectionMatch = moduleSource.match(/sectionKey:\s*"summary"[\s\S]*?fields:\s*Object\.freeze\(\[([\s\S]*?)\]\)/);
 assert(propertyMortgageSectionMatch, "Property & Mortgage section config is missing.");
 assert(monthlyCostsSectionMatch, "Monthly Costs section config is missing.");
+assert(summarySectionMatch, "Summary section config is missing.");
 assert(!propertyMortgageSectionMatch[1].includes('"propertyTaxMonthly"'), "Monthly Property Tax should not render under Property & Mortgage.");
 assert(monthlyCostsSectionMatch[1].includes('"propertyTaxMonthly"'), "Monthly Property Tax should render under Monthly Costs.");
+assert(!propertyMortgageSectionMatch[1].includes('"monthlyMortgagePaymentOnly"'), "Calculated Mortgage Payment should not render under Property & Mortgage.");
+assert(summarySectionMatch[1].includes('"monthlyMortgagePaymentOnly"'), "Calculated Mortgage Payment should render under Summary.");
+assert(!summarySectionMatch[1].includes('"calculatedMonthlyMortgagePayment"'), "Calculated Monthly Burden should not render under Summary.");
 assert(nextStepSource.includes('<span class="pmi-reference-card-num">02 · Housing</span>'), "Existing Housing Costs eyebrow markup changed.");
 assert(nextStepSource.includes("<h2>Housing Costs</h2>"), "Existing Housing Costs title markup changed.");
 assert(/body\[data-page="next-step"\] \.pmi-form-main \.pmi-reference-card-num\s*\{[\s\S]*font-size:\s*9px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0\.08em;[\s\S]*text-transform:\s*uppercase;/.test(layoutSource), "Existing PMI section eyebrow typography changed.");
@@ -347,6 +352,22 @@ assert(
   overLimitMortgageTermRecord.mortgageTermRemainingMonths === "11",
   "Mortgage term remaining months should clamp values above 11."
 );
+const recordWithStaleCalculatedBurdenField = housingRecordsApi.createHousingRecord({
+  typeKey: "primaryResidence",
+  primaryResidenceArrangement: "ownWithMortgage",
+  calculatedMonthlyMortgagePayment: "2000",
+  calculatedMonthlyMortgagePaymentCalculatedValue: "2000",
+  calculatedMonthlyMortgagePaymentManualOverride: true,
+  calculatedMonthlyMortgagePaymentManualValue: "2100"
+});
+assert(
+  !Object.prototype.hasOwnProperty.call(recordWithStaleCalculatedBurdenField, "calculatedMonthlyMortgagePayment"),
+  "Deleted Calculated Monthly Burden field should be dropped from Housing Records raw records."
+);
+assert(
+  !Object.prototype.hasOwnProperty.call(recordWithStaleCalculatedBurdenField, "calculatedMonthlyMortgagePaymentManualOverride"),
+  "Deleted Calculated Monthly Burden override should be dropped from Housing Records raw records."
+);
 assert(
   recordWithStaleTopLevelMortgageFields.propertySecuredDebts[0].monthlyPayment === "400",
   "Nested property-secured debt monthlyPayment should be preserved."
@@ -500,7 +521,6 @@ assertArrangementIncludes("ownWithMortgage", [
   "mortgageTermRemainingMonths",
   "monthlyMortgagePaymentOnly",
   "associatedMonthlyCosts",
-  "calculatedMonthlyMortgagePayment",
   "propertyTaxMonthly",
   "homeownersInsuranceMonthly",
   "hoaMonthly",
