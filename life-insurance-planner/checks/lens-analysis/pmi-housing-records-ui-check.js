@@ -130,6 +130,12 @@ assert(moduleSource.includes("data-pmi-property-secured-debt-remove"), "Property
 assert(moduleSource.includes("data-pmi-property-secured-debt-input"), "Property-secured debt editable fields are missing.");
 assert(moduleSource.includes("shouldShowPropertySecuredDebtField"), "Property-secured debt field visibility helper is missing.");
 assert(moduleSource.includes('debtType === "heloc"'), "HELOC-only property-secured debt fields are not guarded by debt type.");
+const propertySecuredDebtItemMatch = moduleSource.match(/function renderPropertySecuredDebtItem[\s\S]*?\n  function renderPropertySecuredDebtSection/);
+assert(propertySecuredDebtItemMatch, "Could not inspect property-secured debt item renderer.");
+assert(
+  !propertySecuredDebtItemMatch[0].includes("<h4>"),
+  "Property-secured debt cards should not render an auto title above the editable fields."
+);
 assert(moduleSource.includes("serializeHousingRecords"), "Housing Records serialize API is missing.");
 assert(moduleSource.includes("hydrateHousingRecords"), "Housing Records hydrate API is missing.");
 assert(moduleSource.includes("Non-goals: no normalization"), "Housing Records module does not document calculation-neutral ownership.");

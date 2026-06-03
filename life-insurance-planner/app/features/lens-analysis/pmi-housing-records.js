@@ -1029,13 +1029,11 @@
 
   function renderPropertySecuredDebtItem(debt, debtIndex) {
     const safeDebt = createPropertySecuredDebt(debt);
-    const debtLabel = safeDebt.label || getPropertySecuredDebtTypeConfig(safeDebt.debtType).label;
     return `
       <article class="pmi-property-secured-debt-card" data-pmi-property-secured-debt-entry data-secured-debt-id="${escapeHtml(safeDebt.securedDebtId)}">
         <div class="pmi-property-secured-debt-card-header">
           <div>
             <span class="pmi-housing-record-index">Debt ${debtIndex + 1}</span>
-            <h4>${escapeHtml(debtLabel)}</h4>
           </div>
           <button class="pmi-housing-record-remove" type="button" data-pmi-property-secured-debt-remove aria-label="Remove property-secured debt">Remove</button>
         </div>
