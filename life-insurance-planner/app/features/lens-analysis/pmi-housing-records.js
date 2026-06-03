@@ -148,7 +148,7 @@
     label: Object.freeze({ label: "Record Label", type: "text", placeholder: "Housing record" }),
     typeKey: Object.freeze({ label: "Housing Type", type: "housingType" }),
     primaryResidenceArrangement: Object.freeze({ label: "Primary Residence Arrangement", type: "primaryResidenceArrangement" }),
-    continuesAfterDeath: Object.freeze({ label: "Continues After Death?", type: "continuesAfterDeath" }),
+    continuesAfterDeath: Object.freeze({ label: "Survivor expected to remain?", type: "continuesAfterDeath" }),
     propertyValue: Object.freeze({ label: "Property Value", type: "number", step: "1000", suffix: "USD" }),
     currentBalance: Object.freeze({ label: "Current Balance", type: "number", step: "1000", suffix: "USD" }),
     monthlyPayment: Object.freeze({ label: "Monthly Payment", type: "number", step: "50", suffix: "USD" }),
@@ -954,7 +954,7 @@
       paymentType: FIELD_DEFINITIONS.paymentType,
       remainingTermMonths: { label: "Debt Remaining Term", type: "number", step: "1", suffix: "Months" },
       lienPosition: FIELD_DEFINITIONS.lienPosition,
-      continuesAfterDeath: { label: "Continues After Death?", type: "select", options: CONTINUES_AFTER_DEATH_OPTIONS },
+      continuesAfterDeath: { label: "Survivor expected to remain?", type: "select", options: CONTINUES_AFTER_DEATH_OPTIONS },
       creditLimit: { label: "Credit Limit", type: "number", step: "1000", suffix: "USD" },
       drawPeriodEndDate: { label: "Draw Period End Date", type: "date" },
       interestOnlyDuringDrawPeriod: {

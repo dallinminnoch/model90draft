@@ -144,6 +144,9 @@ assert(moduleSource.includes("PRIMARY_RESIDENCE_ARRANGEMENT_OPTIONS"), "Primary 
 assert(moduleSource.includes("primaryResidenceArrangement"), "Primary residence arrangement key is missing.");
 assert(!moduleSource.includes("derivePropertyRole"), "Derived propertyRole helper should not remain.");
 assert(moduleSource.includes("normalizeContinuesAfterDeath"), "Continues-after-death normalizer is missing.");
+assert(moduleSource.includes('label: "Survivor expected to remain?"'), "Housing Records survivor remain label is missing.");
+assert(!moduleSource.includes('label: "Continues After Death?"'), "Old continues-after-death label should not remain visible.");
+assert(moduleSource.includes("continuesAfterDeath"), "Housing Records continuesAfterDeath save key should remain unchanged.");
 assert(moduleSource.includes("REMOVED_ESCROW_FIELD_KEYS"), "Removed escrow field sanitizer is missing.");
 assert(moduleSource.includes("omitRemovedEscrowFields"), "Escrow field omission helper is missing.");
 assert(moduleSource.includes("omitRemovedHousingRecordFields"), "Housing Record raw field omission helper is missing.");
