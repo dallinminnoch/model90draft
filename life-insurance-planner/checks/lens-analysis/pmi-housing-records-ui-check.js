@@ -117,6 +117,9 @@ assert(moduleSource.includes("data-pmi-housing-record-add"), "Housing Records ad
 assert(moduleSource.includes("data-pmi-housing-record-remove"), "Housing Records remove control is missing.");
 assert(moduleSource.includes("data-pmi-housing-record-input"), "Housing Records editable fields are missing.");
 assert(moduleSource.includes("FIELD_GROUPS_BY_TYPE"), "Housing Records type-specific field map is missing.");
+assert(moduleSource.includes("FIELD_SECTION_CONFIGS"), "Housing Records divider section map is missing.");
+assert(moduleSource.includes("renderFieldSection"), "Housing Records divider section renderer is missing.");
+assert(moduleSource.includes("data-pmi-housing-record-section"), "Housing Records section markup is missing.");
 assert(moduleSource.includes("shouldShowField"), "Housing Records field visibility helper is missing.");
 assert(moduleSource.includes("PROPERTY_SECURED_DEBT_TYPE_OPTIONS"), "Property-secured debt type options are missing.");
 assert(moduleSource.includes("PROPERTY_SECURED_DEBT_OWNER_TYPES"), "Property-secured debt owner type list is missing.");
@@ -185,6 +188,10 @@ assert(/\.pmi-housing-record-field input,\s*[\s\S]*\.pmi-housing-record-field te
 assert(/\.pmi-housing-record-card-header \.pmi-reference-card-num\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*9px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0\.08em;[\s\S]*line-height:\s*1\.1;[\s\S]*text-transform:\s*uppercase;/.test(housingRecordsCss), "Housing record eyebrow should mirror PMI section eyebrow typography.");
 assert(/\.pmi-housing-record-card-header h3\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*13\.5px;[\s\S]*font-weight:\s*600;[\s\S]*line-height:\s*1\.2;/.test(housingRecordsCss), "Housing record titles should mirror PMI section title typography.");
 assert(/\.pmi-housing-records-toolbar \.pmi-housing-records-add-button\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*12\.5px;[\s\S]*font-weight:\s*600;[\s\S]*line-height:\s*1\.2;/.test(housingRecordsCss), "Add Housing Record button should use compact Housing record title typography.");
+assert(housingRecordsCss.includes(".pmi-housing-record-sections"), "Housing Records section stack CSS is missing.");
+assert(/\.pmi-housing-record-section\s*\{[\s\S]*border-top:\s*1px solid var\(--m90-border-soft\);/.test(housingRecordsCss), "Housing Records sections should use divider borders.");
+assert(/\.pmi-housing-record-section-divider\s*\{[\s\S]*font-family:\s*"Montserrat", "Inter", sans-serif;[\s\S]*font-size:\s*9px;[\s\S]*text-transform:\s*uppercase;/.test(housingRecordsCss), "Housing Records section divider typography is missing.");
+assert(/\.pmi-housing-record-section-divider::after\s*\{[\s\S]*background:\s*var\(--m90-border-soft\);/.test(housingRecordsCss), "Housing Records section divider line is missing.");
 assert(/\.pmi-property-secured-debts-header h4,\s*[\s\S]*\.pmi-property-secured-debt-card-header h4\s*\{[\s\S]*font-size:\s*0\.78rem;[\s\S]*font-weight:\s*700;/.test(housingRecordsCss), "Additional Property-Secured Debts headings should use compact sub-card typography.");
 assert(!moduleSource.includes("PROPERTY_ROLE_OPTIONS"), "Generic Property Role options should not remain visible.");
 assert(!moduleSource.includes('label: "Property Role"'), "Generic Property Role label should not remain visible.");
@@ -194,9 +201,19 @@ assert(!moduleSource.includes("propertyRole:"), "propertyRole should not be writ
 
 const baseFieldsMatch = moduleSource.match(/const BASE_FIELDS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(baseFieldsMatch, "Could not inspect Housing Records base fields.");
+assert(
+  baseFieldsMatch[1].indexOf('"typeKey"') >= 0
+    && baseFieldsMatch[1].indexOf('"label"') > baseFieldsMatch[1].indexOf('"typeKey"'),
+  "Housing Type should render before Record Label in base fields."
+);
 assert(!baseFieldsMatch[1].includes('"propertyRole"'), "Generic propertyRole should not be in visible base fields.");
 const primaryResidenceBaseFieldsMatch = moduleSource.match(/const PRIMARY_RESIDENCE_BASE_FIELDS = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert(primaryResidenceBaseFieldsMatch, "Could not inspect Primary Residence base fields.");
+assert(
+  primaryResidenceBaseFieldsMatch[1].indexOf('"typeKey"') >= 0
+    && primaryResidenceBaseFieldsMatch[1].indexOf('"label"') > primaryResidenceBaseFieldsMatch[1].indexOf('"typeKey"'),
+  "Housing Type should render before Record Label in Primary Residence base fields."
+);
 assert(!primaryResidenceBaseFieldsMatch[1].includes('"propertyRole"'), "Generic propertyRole should not be in visible Primary Residence base fields.");
 
 const housingTypeOptionsMatch = moduleSource.match(/const HOUSING_TYPE_OPTIONS = Object\.freeze\(\[([\s\S]*?)\]\);/);

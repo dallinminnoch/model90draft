@@ -2458,11 +2458,12 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 
 .pmi-housing-record-card {
   display: grid;
-  gap: 0.75rem;
+  gap: 0;
   min-width: 0;
-  padding: 0.85rem;
+  overflow: hidden;
+  padding: 0;
   border: 1px solid var(--m90-border-soft);
-  border-radius: 0.48rem;
+  border-radius: 0.52rem;
   background: var(--m90-surface);
   box-shadow: none;
 }
@@ -2472,16 +2473,70 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
   gap: 0.75rem;
   align-items: flex-start;
   justify-content: space-between;
+  padding: 0.82rem 0.9rem;
+  background: var(--m90-text-primary);
+  color: var(--m90-surface);
 }
 
 .pmi-housing-record-card-header h3 {
   margin: 0;
-  color: var(--m90-text-primary);
+  color: inherit;
   font-family: "Montserrat", "Inter", sans-serif;
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0;
   line-height: 1.2;
+}
+
+.pmi-housing-record-card-header .pmi-reference-card-num {
+  color: color-mix(in srgb, var(--m90-surface) 66%, transparent);
+}
+
+.pmi-housing-record-card-header .pmi-housing-record-remove {
+  border-color: color-mix(in srgb, var(--m90-surface) 14%, transparent);
+  background: color-mix(in srgb, var(--m90-surface) 9%, transparent);
+  color: color-mix(in srgb, var(--m90-surface) 78%, transparent);
+}
+
+.pmi-housing-record-sections {
+  display: grid;
+  min-width: 0;
+  padding: 0.7rem 0.85rem 0.95rem;
+}
+
+.pmi-housing-record-section {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.55rem 0 0.72rem;
+  border-top: 1px solid var(--m90-border-soft);
+}
+
+.pmi-housing-record-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.pmi-housing-record-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.52rem;
+  min-width: 0;
+  color: var(--m90-accent);
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.pmi-housing-record-section-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  min-width: 1rem;
+  background: var(--m90-border-soft);
 }
 
 .pmi-housing-record-fields {
@@ -2572,7 +2627,7 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 }
 
 .pmi-property-secured-debts-section {
-  padding-top: 0.2rem;
+  padding: 0.85rem;
   border-top: 1px solid var(--m90-border-soft);
 }
 

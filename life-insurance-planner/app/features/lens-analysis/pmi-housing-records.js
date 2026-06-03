@@ -235,8 +235,8 @@
     })
   });
 
-  const BASE_FIELDS = Object.freeze(["label", "typeKey", "continuesAfterDeath"]);
-  const PRIMARY_RESIDENCE_BASE_FIELDS = Object.freeze(["label", "typeKey", "primaryResidenceArrangement", "continuesAfterDeath"]);
+  const BASE_FIELDS = Object.freeze(["typeKey", "label", "continuesAfterDeath"]);
+  const PRIMARY_RESIDENCE_BASE_FIELDS = Object.freeze(["typeKey", "label", "primaryResidenceArrangement", "continuesAfterDeath"]);
 
   const PRIMARY_RESIDENCE_FIELD_GROUPS_BY_ARRANGEMENT = Object.freeze({
     ownWithMortgage: Object.freeze([
@@ -278,6 +278,57 @@
       "calculatedMonthlyMortgagePayment"
     ])
   });
+
+  const FIELD_SECTION_CONFIGS = Object.freeze([
+    Object.freeze({
+      sectionKey: "classification",
+      label: "Classification",
+      fields: Object.freeze(["typeKey", "label", "primaryResidenceArrangement", "continuesAfterDeath"])
+    }),
+    Object.freeze({
+      sectionKey: "propertyMortgage",
+      label: "Property & Mortgage",
+      fields: Object.freeze([
+        "propertyValue",
+        "equityAmount",
+        "currentBalance",
+        "mortgageBalance",
+        "interestRatePercent",
+        "monthlyMortgagePaymentOnly",
+        "propertyTaxMonthly",
+        "grossMonthlyRentReceived"
+      ])
+    }),
+    Object.freeze({
+      sectionKey: "homeDetails",
+      label: "Home Details",
+      fields: Object.freeze(["homeSquareFootage", "homeAgeYears"])
+    }),
+    Object.freeze({
+      sectionKey: "monthlyCosts",
+      label: "Monthly Costs",
+      fields: Object.freeze([
+        "rentMonthly",
+        "leaseTermMonths",
+        "homeownersInsuranceMonthly",
+        "rentersInsuranceMonthly",
+        "hoaMonthly",
+        "utilitiesMonthly",
+        "otherHousingCostMonthly",
+        "monthlyMaintenanceRecommendation"
+      ])
+    }),
+    Object.freeze({
+      sectionKey: "summary",
+      label: "Summary",
+      fields: Object.freeze(["associatedMonthlyCosts", "calculatedMonthlyMortgagePayment"])
+    }),
+    Object.freeze({
+      sectionKey: "details",
+      label: "Details",
+      fields: Object.freeze(["monthlyCost", "expectedDurationMonths", "reasonLabel", "notes", "reviewStatus"])
+    })
+  ]);
 
   const FIELD_GROUPS_BY_TYPE = Object.freeze({
     secondHomeVacationProperty: Object.freeze([
@@ -826,6 +877,43 @@
     `;
   }
 
+  function getFieldSectionGroups(fieldKeys) {
+    const remainingFieldKeys = fieldKeys.slice();
+    const sections = FIELD_SECTION_CONFIGS.map((sectionConfig) => {
+      const fields = sectionConfig.fields.filter((fieldKey) => remainingFieldKeys.includes(fieldKey));
+      fields.forEach((fieldKey) => {
+        const index = remainingFieldKeys.indexOf(fieldKey);
+        if (index >= 0) {
+          remainingFieldKeys.splice(index, 1);
+        }
+      });
+      return { ...sectionConfig, fields };
+    }).filter((sectionConfig) => sectionConfig.fields.length);
+
+    if (remainingFieldKeys.length) {
+      sections.push({
+        sectionKey: "other",
+        label: "Additional Details",
+        fields: remainingFieldKeys
+      });
+    }
+
+    return sections;
+  }
+
+  function renderFieldSection(sectionConfig, record) {
+    return `
+      <section class="pmi-housing-record-section pmi-housing-record-section--${escapeHtml(sectionConfig.sectionKey)}" data-pmi-housing-record-section="${escapeHtml(sectionConfig.sectionKey)}">
+        <div class="pmi-housing-record-section-divider">
+          <span>${escapeHtml(sectionConfig.label)}</span>
+        </div>
+        <div class="pmi-housing-record-fields">
+          ${sectionConfig.fields.map((fieldKey) => renderField(fieldKey, record, sectionConfig.sectionKey)).join("")}
+        </div>
+      </section>
+    `;
+  }
+
   function renderPropertySecuredDebtInput(debt, fieldKey, config) {
     const value = normalizeString(debt[fieldKey]);
     const commonAttributes = `data-pmi-property-secured-debt-input="${escapeHtml(fieldKey)}"`;
@@ -958,6 +1046,7 @@
   function renderRecord(record, index) {
     const baseFields = getBaseFieldsForRecord(record);
     const typeFields = getFieldGroupForRecord(record);
+    const fieldSections = getFieldSectionGroups([...baseFields, ...typeFields]);
     const typeLabel = getTypeConfig(record.typeKey).label;
 
     return `
@@ -969,11 +1058,8 @@
           </div>
           <button class="pmi-housing-record-remove" type="button" data-pmi-housing-record-remove aria-label="Remove housing record">Remove</button>
         </div>
-        <div class="pmi-housing-record-fields pmi-housing-record-fields--base">
-          ${baseFields.map((fieldKey) => renderField(fieldKey, record, "base")).join("")}
-        </div>
-        <div class="pmi-housing-record-fields pmi-housing-record-fields--type">
-          ${typeFields.map((fieldKey) => renderField(fieldKey, record, record.typeKey)).join("")}
+        <div class="pmi-housing-record-sections">
+          ${fieldSections.map((sectionConfig) => renderFieldSection(sectionConfig, record)).join("")}
         </div>
         ${renderPropertySecuredDebtSection(record)}
       </article>
