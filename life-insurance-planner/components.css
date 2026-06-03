@@ -2607,6 +2607,33 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
   order: 3;
 }
 
+body[data-page="next-step"] .pmi-form-main .pmi-housing-record-calculated-action {
+  flex: 0 0 auto;
+  align-self: center;
+  min-height: auto;
+  margin: 0 8px 0 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--m90-accent);
+  font-family: "Montserrat", "Inter", sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  outline: 0;
+  box-shadow: none;
+}
+
+body[data-page="next-step"] .pmi-form-main .pmi-housing-record-calculated-action:hover,
+body[data-page="next-step"] .pmi-form-main .pmi-housing-record-calculated-action:focus-visible {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--m90-accent-strong);
+  box-shadow: none;
+}
+
 body[data-page="next-step"] .pmi-form-main .pmi-housing-record-input-shell.pmi-housing-record-calculated-shell .profile-currency-suffix {
   right: auto;
 }
