@@ -72,6 +72,7 @@ const requiredFieldKeys = [
   "monthlyMortgagePaymentOnly",
   "associatedMonthlyCosts",
   "propertySecuredDebts",
+  "propertySecuredDebtLabelManualOverride",
   "primaryResidenceArrangement",
   "debtType",
   "debtSubType",
@@ -130,6 +131,10 @@ assert(moduleSource.includes("data-pmi-property-secured-debt-remove"), "Property
 assert(moduleSource.includes("data-pmi-property-secured-debt-input"), "Property-secured debt editable fields are missing.");
 assert(moduleSource.includes("shouldShowPropertySecuredDebtField"), "Property-secured debt field visibility helper is missing.");
 assert(moduleSource.includes('debtType === "heloc"'), "HELOC-only property-secured debt fields are not guarded by debt type.");
+assert(moduleSource.includes("isPropertySecuredDebtLabelManual"), "Property-secured debt manual label helper is missing.");
+assert(moduleSource.includes("propertySecuredDebtLabelManualOverride"), "Property-secured debt manual label state is missing.");
+assert(moduleSource.includes("autoLabelTypeChangeDebtId"), "Property-secured debt type changes should update unedited labels.");
+assert(moduleSource.includes("manualLabelDebtId"), "Property-secured debt label edits should stop automatic type-label updates.");
 const propertySecuredDebtItemMatch = moduleSource.match(/function renderPropertySecuredDebtItem[\s\S]*?\n  function renderPropertySecuredDebtSection/);
 assert(propertySecuredDebtItemMatch, "Could not inspect property-secured debt item renderer.");
 assert(
@@ -413,6 +418,21 @@ const securedDebtContinuesRecord = housingRecordsApi.createHousingRecord({
 assert(securedDebtContinuesRecord.propertySecuredDebts[0].continuesAfterDeath === "yes", "Property-secured debt continuesAfterDeath should default to yes.");
 assert(securedDebtContinuesRecord.propertySecuredDebts[1].continuesAfterDeath === "yes", "Stale property-secured debt Review continuesAfterDeath should sanitize to yes.");
 assert(securedDebtContinuesRecord.propertySecuredDebts[2].continuesAfterDeath === "no", "Property-secured debt continuesAfterDeath should preserve no.");
+
+const defaultSecuredDebtLabelRecord = housingRecordsApi.createHousingRecord({
+  typeKey: "primaryResidence",
+  primaryResidenceArrangement: "ownWithMortgage",
+  propertySecuredDebts: [{ debtType: "heloc" }]
+});
+assert(defaultSecuredDebtLabelRecord.propertySecuredDebts[0].label === "HELOC", "Property-secured debt labels should default to the selected debt type label.");
+assert(defaultSecuredDebtLabelRecord.propertySecuredDebts[0].propertySecuredDebtLabelManualOverride === false, "Default property-secured debt labels should not be marked manual.");
+const customSecuredDebtLabelRecord = housingRecordsApi.createHousingRecord({
+  typeKey: "primaryResidence",
+  primaryResidenceArrangement: "ownWithMortgage",
+  propertySecuredDebts: [{ debtType: "heloc", label: "Home line reserve" }]
+});
+assert(customSecuredDebtLabelRecord.propertySecuredDebts[0].label === "Home line reserve", "Custom property-secured debt labels should be preserved.");
+assert(customSecuredDebtLabelRecord.propertySecuredDebts[0].propertySecuredDebtLabelManualOverride === true, "Custom property-secured debt labels should be marked manual.");
 
 [
   ["primaryResidenceMortgage", "ownWithMortgage"],

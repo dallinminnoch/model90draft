@@ -511,6 +511,13 @@
     return getPropertySecuredDebtTypeConfig(normalizedValue).value;
   }
 
+  function isPropertySecuredDebtLabelManual(source, debtType) {
+    const typeLabel = getPropertySecuredDebtTypeConfig(debtType).label;
+    const sourceLabel = normalizeString(source?.label);
+    return isTrue(source?.propertySecuredDebtLabelManualOverride)
+      || Boolean(sourceLabel && sourceLabel !== typeLabel);
+  }
+
   function supportsPropertySecuredDebts(recordOrTypeKey) {
     const typeKey = typeof recordOrTypeKey === "string"
       ? getTypeConfig(recordOrTypeKey).value
@@ -598,13 +605,17 @@
     const typeLabel = getPropertySecuredDebtTypeConfig(debtType).label;
     const securedDebtId = normalizeString(source.securedDebtId)
       || `property-secured-debt-${Date.now().toString(36)}-${++generatedHousingRecordCounter}`;
-    const label = normalizeString(source.label) || typeLabel;
+    const labelManualOverride = isPropertySecuredDebtLabelManual(source, debtType);
+    const label = labelManualOverride
+      ? normalizeString(source.label) || typeLabel
+      : typeLabel;
 
     return {
       ...source,
       securedDebtId,
       debtType,
       label,
+      propertySecuredDebtLabelManualOverride: labelManualOverride,
       continuesAfterDeath: normalizeContinuesAfterDeath(source.continuesAfterDeath)
     };
   }
@@ -1170,22 +1181,54 @@
       }
     }
 
-    function syncPropertySecuredDebtsFromRow(row, record) {
+    function syncPropertySecuredDebtsFromRow(row, record, options = {}) {
       if (!row || !record || !supportsPropertySecuredDebts(record)) {
         return;
       }
 
       record.propertySecuredDebts = Array.from(row.querySelectorAll("[data-pmi-property-secured-debt-entry]"))
         .map((debtRow) => {
+          const securedDebtId = normalizeString(debtRow.getAttribute("data-secured-debt-id"));
+          const existingDebt = (record.propertySecuredDebts || []).find((debt) => debt.securedDebtId === securedDebtId);
           const debt = {
-            securedDebtId: normalizeString(debtRow.getAttribute("data-secured-debt-id"))
+            securedDebtId
           };
           debtRow.querySelectorAll("[data-pmi-property-secured-debt-input]").forEach((field) => {
             const fieldKey = field.getAttribute("data-pmi-property-secured-debt-input");
             debt[fieldKey] = field.value;
           });
+          const debtType = normalizePropertySecuredDebtType(debt.debtType || existingDebt?.debtType);
+          const labelWasManual = isPropertySecuredDebtLabelManual(existingDebt, existingDebt?.debtType);
+          const labelManuallyEdited = options.manualLabelDebtId === securedDebtId;
+          const shouldAutoLabelFromType = options.autoLabelTypeChangeDebtId === securedDebtId
+            && !labelWasManual
+            && !labelManuallyEdited;
+          if (shouldAutoLabelFromType) {
+            debt.label = getPropertySecuredDebtTypeConfig(debtType).label;
+          }
+          debt.propertySecuredDebtLabelManualOverride = labelWasManual || labelManuallyEdited;
           return createPropertySecuredDebt(debt);
         });
+    }
+
+    function syncPropertySecuredDebtFieldChange(row, target, fieldKey) {
+      const recordId = row.getAttribute("data-housing-record-id");
+      const record = controller.records.find((entry) => entry.housingRecordId === recordId);
+      if (!record) {
+        return false;
+      }
+
+      const debtRow = target.closest("[data-pmi-property-secured-debt-entry]");
+      const securedDebtId = normalizeString(debtRow?.getAttribute("data-secured-debt-id"));
+      syncPropertySecuredDebtsFromRow(row, record, {
+        manualLabelDebtId: fieldKey === "label" ? securedDebtId : "",
+        autoLabelTypeChangeDebtId: fieldKey === "debtType" ? securedDebtId : ""
+      });
+      if (fieldKey === "debtType") {
+        renderRows();
+      }
+      notifyChange();
+      return true;
     }
 
     function syncRecordsFromDom() {
@@ -1389,15 +1432,7 @@
 
       const securedDebtFieldKey = event.target.getAttribute("data-pmi-property-secured-debt-input");
       if (securedDebtFieldKey) {
-        const recordId = row.getAttribute("data-housing-record-id");
-        const record = controller.records.find((entry) => entry.housingRecordId === recordId);
-        if (record) {
-          syncPropertySecuredDebtsFromRow(row, record);
-          if (securedDebtFieldKey === "debtType") {
-            renderRows();
-          }
-          notifyChange();
-        }
+        syncPropertySecuredDebtFieldChange(row, event.target, securedDebtFieldKey);
         return;
       }
 
@@ -1429,15 +1464,7 @@
 
       const securedDebtFieldKey = event.target.getAttribute("data-pmi-property-secured-debt-input");
       if (securedDebtFieldKey) {
-        const recordId = row.getAttribute("data-housing-record-id");
-        const record = controller.records.find((entry) => entry.housingRecordId === recordId);
-        if (record) {
-          syncPropertySecuredDebtsFromRow(row, record);
-          if (securedDebtFieldKey === "debtType") {
-            renderRows();
-          }
-          notifyChange();
-        }
+        syncPropertySecuredDebtFieldChange(row, event.target, securedDebtFieldKey);
         return;
       }
 
