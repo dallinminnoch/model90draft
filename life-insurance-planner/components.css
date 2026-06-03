@@ -2564,14 +2564,20 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  min-height: 1.72rem;
-  padding: 0.22rem 0.32rem;
-  border-color: var(--m90-border-soft);
-  border-radius: 0.18rem;
-  background: var(--m90-surface);
+  min-height: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-color: var(--m90-border);
+  border-radius: 6px;
+  background: var(--m90-surface-secondary);
   color: var(--m90-text-primary);
-  font-size: 0.78rem;
+  font-size: 12.5px;
   line-height: 1.2;
+  box-shadow: none;
+}
+
+.pmi-housing-record-field select {
+  font-size: 12px;
 }
 
 .pmi-housing-record-field textarea {
@@ -2580,12 +2586,13 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 
 .pmi-housing-record-input-shell {
   overflow: hidden;
-  border: 1px solid var(--m90-border-soft);
-  border-radius: 0.18rem;
+  border: 1px solid var(--m90-border);
+  border-radius: 6px;
   background: var(--m90-surface-secondary);
 }
 
 .pmi-housing-record-input-shell input {
+  order: 2;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -2593,21 +2600,25 @@ body[data-page="next-step"] #pmi-housing .pmi-housing-records-kicker {
 }
 
 .pmi-housing-record-calculated-shell input {
-  padding-right: 4.7rem;
+  padding-right: 10px;
 }
 
 .pmi-housing-record-calculated-action {
-  right: 0.34rem;
+  order: 3;
 }
 
-.pmi-housing-record-input-shell.pmi-housing-record-calculated-shell .profile-currency-suffix {
-  right: 2.95rem;
+body[data-page="next-step"] .pmi-form-main .pmi-housing-record-input-shell.pmi-housing-record-calculated-shell .profile-currency-suffix {
+  right: auto;
 }
 
-.pmi-housing-record-input-shell .profile-currency-suffix {
-  right: 0.3rem;
+body[data-page="next-step"] .pmi-form-main .pmi-housing-record-input-shell .profile-currency-suffix {
+  order: 1;
+  right: auto;
+  border-right: 1px solid var(--m90-border);
+  border-left: 0;
+  background: var(--m90-surface-secondary);
   color: var(--m90-text-muted);
-  font-size: 0.56rem;
+  font-size: 11px;
 }
 
 .pmi-housing-record-field input:focus,
