@@ -119,6 +119,8 @@ assert(moduleSource.includes("FIELD_GROUPS_BY_TYPE"), "Housing Records type-spec
 assert(moduleSource.includes("FIELD_SECTION_CONFIGS"), "Housing Records divider section map is missing.");
 assert(moduleSource.includes("renderFieldSection"), "Housing Records divider section renderer is missing.");
 assert(moduleSource.includes("data-pmi-housing-record-section"), "Housing Records section markup is missing.");
+assert(moduleSource.includes('note: "For projected monthly maintenance costs only."'), "Home Details projected maintenance note is missing.");
+assert(moduleSource.includes("pmi-housing-record-section-note"), "Housing Records section note markup is missing.");
 assert(moduleSource.includes("shouldShowField"), "Housing Records field visibility helper is missing.");
 assert(moduleSource.includes("PROPERTY_SECURED_DEBT_TYPE_OPTIONS"), "Property-secured debt type options are missing.");
 assert(moduleSource.includes("PROPERTY_SECURED_DEBT_OWNER_TYPES"), "Property-secured debt owner type list is missing.");
@@ -200,6 +202,7 @@ const housingRecordsCss = componentsSource.slice(housingRecordsCssStart, housing
 assert(/\.pmi-housing-record-field\s*\{[\s\S]*font-family:\s*"Inter", sans-serif;[\s\S]*font-size:\s*10\.5px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0;[\s\S]*line-height:\s*1\.25;/.test(housingRecordsCss), "Housing field labels should match PMI field label typography.");
 assert(/\.pmi-housing-record-field input,\s*[\s\S]*\.pmi-housing-record-field textarea\s*\{[\s\S]*min-height:\s*34px;[\s\S]*height:\s*34px;[\s\S]*padding:\s*0 10px;[\s\S]*border-color:\s*var\(--m90-border\);[\s\S]*border-radius:\s*6px;[\s\S]*background:\s*var\(--m90-surface-secondary\);[\s\S]*font-size:\s*12\.5px;/.test(housingRecordsCss), "Housing record controls should match Income Calculation field box styling.");
 assert(/\.pmi-housing-record-input-shell\s*\{[\s\S]*border:\s*1px solid var\(--m90-border\);[\s\S]*border-radius:\s*6px;[\s\S]*background:\s*var\(--m90-surface-secondary\);/.test(housingRecordsCss), "Housing currency shells should match Income Calculation field box styling.");
+assert(/\.pmi-housing-record-section-note\s*\{[\s\S]*font-family:\s*"Inter", sans-serif;[\s\S]*font-size:\s*9\.5px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0;[\s\S]*line-height:\s*1\.25;/.test(housingRecordsCss), "Housing section note should use small PMI text styling.");
 assert(/\.pmi-housing-record-input-shell input\s*\{[\s\S]*order:\s*2;/.test(housingRecordsCss), "Housing currency inputs should render after the unit prefix.");
 assert(/body\[data-page="next-step"\] \.pmi-form-main \.pmi-housing-record-input-shell \.profile-currency-suffix\s*\{[\s\S]*order:\s*1;[\s\S]*border-right:\s*1px solid var\(--m90-border\);[\s\S]*border-left:\s*0;[\s\S]*font-size:\s*11px;/.test(housingRecordsCss), "Housing currency units should use clean leading unit styling.");
 assert(/body\[data-page="next-step"\] \.pmi-form-main \.pmi-housing-record-calculated-action\s*\{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;[\s\S]*color:\s*var\(--m90-accent\);[\s\S]*font-size:\s*10\.5px;[\s\S]*outline:\s*0;[\s\S]*box-shadow:\s*none;/.test(housingRecordsCss), "Housing calculated edit buttons should be small blue text controls.");

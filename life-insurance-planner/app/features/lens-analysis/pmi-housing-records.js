@@ -305,6 +305,7 @@
     Object.freeze({
       sectionKey: "homeDetails",
       label: "Home Details",
+      note: "For projected monthly maintenance costs only.",
       fields: Object.freeze(["homeSquareFootage", "homeAgeYears"])
     }),
     Object.freeze({
@@ -932,6 +933,7 @@
         <div class="pmi-housing-record-section-divider">
           <span>${escapeHtml(sectionConfig.label)}</span>
         </div>
+        ${sectionConfig.note ? `<p class="pmi-housing-record-section-note">${escapeHtml(sectionConfig.note)}</p>` : ""}
         <div class="pmi-housing-record-fields">
           ${sectionConfig.fields.map((fieldKey) => renderField(fieldKey, record, sectionConfig.sectionKey)).join("")}
         </div>
