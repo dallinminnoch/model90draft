@@ -295,7 +295,6 @@
         "mortgageBalance",
         "interestRatePercent",
         "monthlyMortgagePaymentOnly",
-        "propertyTaxMonthly",
         "grossMonthlyRentReceived"
       ])
     }),
@@ -310,6 +309,7 @@
       fields: Object.freeze([
         "rentMonthly",
         "leaseTermMonths",
+        "propertyTaxMonthly",
         "homeownersInsuranceMonthly",
         "rentersInsuranceMonthly",
         "hoaMonthly",

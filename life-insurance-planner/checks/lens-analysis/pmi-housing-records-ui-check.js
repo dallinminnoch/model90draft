@@ -176,6 +176,12 @@ assert(moduleSource.includes("REMOVED_TOP_LEVEL_MORTGAGE_FIELD_KEYS"), "Removed 
 assert(moduleSource.includes("REMOVED_TOP_LEVEL_MAINTENANCE_FIELD_KEYS"), "Removed top-level maintenance field sanitizer is missing.");
 assert(moduleSource.includes("migrateRemovedTopLevelSecuredDebtRecord"), "Removed top-level secured-debt migration helper is missing.");
 assert(moduleSource.includes("serializeHousingRecord"), "Housing Records serialization wrapper is missing.");
+const propertyMortgageSectionMatch = moduleSource.match(/sectionKey:\s*"propertyMortgage"[\s\S]*?fields:\s*Object\.freeze\(\[([\s\S]*?)\]\)/);
+const monthlyCostsSectionMatch = moduleSource.match(/sectionKey:\s*"monthlyCosts"[\s\S]*?fields:\s*Object\.freeze\(\[([\s\S]*?)\]\)/);
+assert(propertyMortgageSectionMatch, "Property & Mortgage section config is missing.");
+assert(monthlyCostsSectionMatch, "Monthly Costs section config is missing.");
+assert(!propertyMortgageSectionMatch[1].includes('"propertyTaxMonthly"'), "Monthly Property Tax should not render under Property & Mortgage.");
+assert(monthlyCostsSectionMatch[1].includes('"propertyTaxMonthly"'), "Monthly Property Tax should render under Monthly Costs.");
 assert(nextStepSource.includes('<span class="pmi-reference-card-num">02 · Housing</span>'), "Existing Housing Costs eyebrow markup changed.");
 assert(nextStepSource.includes("<h2>Housing Costs</h2>"), "Existing Housing Costs title markup changed.");
 assert(/body\[data-page="next-step"\] \.pmi-form-main \.pmi-reference-card-num\s*\{[\s\S]*font-size:\s*9px;[\s\S]*font-weight:\s*400;[\s\S]*letter-spacing:\s*0\.08em;[\s\S]*text-transform:\s*uppercase;/.test(layoutSource), "Existing PMI section eyebrow typography changed.");
