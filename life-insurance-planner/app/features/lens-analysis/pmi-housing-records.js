@@ -80,8 +80,6 @@
 
   const REMOVED_TOP_LEVEL_MORTGAGE_FIELD_KEYS = Object.freeze([
     "monthlyPayment",
-    "mortgageTermRemainingYears",
-    "mortgageTermRemainingMonths",
     "remainingTermMonths"
   ]);
 
@@ -244,6 +242,8 @@
       "equityAmount",
       "currentBalance",
       "interestRatePercent",
+      "mortgageTermRemainingYears",
+      "mortgageTermRemainingMonths",
       "monthlyMortgagePaymentOnly",
       "propertyTaxMonthly",
       "homeownersInsuranceMonthly",
@@ -294,6 +294,8 @@
         "currentBalance",
         "mortgageBalance",
         "interestRatePercent",
+        "mortgageTermRemainingYears",
+        "mortgageTermRemainingMonths",
         "monthlyMortgagePaymentOnly",
         "grossMonthlyRentReceived"
       ])
@@ -425,6 +427,28 @@
 
   function normalizeContinuesAfterDeath(value) {
     return normalizeString(value).toLowerCase() === "no" ? "no" : "yes";
+  }
+
+  function normalizeMortgageTermRemainingMonths(value) {
+    const normalizedValue = normalizeString(value);
+    if (!normalizedValue) {
+      return "";
+    }
+
+    const numericValue = toOptionalNumber(normalizedValue);
+    if (numericValue == null) {
+      return normalizedValue;
+    }
+
+    return String(Math.min(11, Math.max(0, Math.floor(numericValue))));
+  }
+
+  function normalizeHousingRecordFieldValue(fieldKey, value) {
+    if (fieldKey === "mortgageTermRemainingMonths") {
+      return normalizeMortgageTermRemainingMonths(value);
+    }
+
+    return value;
   }
 
   function formatNumberWithCommas(value) {
@@ -706,6 +730,7 @@
       continuesAfterDeath: normalizeContinuesAfterDeath(source.continuesAfterDeath),
       propertySecuredDebts
     };
+    housingRecord.mortgageTermRemainingMonths = normalizeMortgageTermRemainingMonths(housingRecord.mortgageTermRemainingMonths);
     if (typeKey !== "primaryResidence") {
       delete housingRecord.primaryResidenceArrangement;
     }
@@ -717,6 +742,7 @@
       ...omitRemovedHousingRecordFields(record),
       continuesAfterDeath: normalizeContinuesAfterDeath(record?.continuesAfterDeath)
     };
+    sanitizedRecord.mortgageTermRemainingMonths = normalizeMortgageTermRemainingMonths(sanitizedRecord.mortgageTermRemainingMonths);
     const typeKey = getTypeConfig(sanitizedRecord.typeKey).value;
     const recordForSupport = {
       ...sanitizedRecord,
@@ -1124,7 +1150,11 @@
         if (field.dataset.pmiHousingRecordCalculatedInput && field.readOnly) {
           return;
         }
-        record[fieldKey] = field.value;
+        const normalizedValue = normalizeHousingRecordFieldValue(fieldKey, field.value);
+        record[fieldKey] = normalizedValue;
+        if (field.value !== normalizedValue) {
+          field.value = normalizedValue;
+        }
       });
       record.typeKey = getTypeConfig(record.typeKey).value;
       delete record.propertyRole;

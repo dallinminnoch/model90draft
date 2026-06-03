@@ -322,8 +322,6 @@ const recordWithStaleTopLevelMortgageFields = housingRecordsApi.createHousingRec
 });
 [
   "monthlyPayment",
-  "mortgageTermRemainingYears",
-  "mortgageTermRemainingMonths",
   "remainingTermMonths",
   "maintenanceMonthly"
 ].forEach((fieldKey) => {
@@ -332,6 +330,23 @@ const recordWithStaleTopLevelMortgageFields = housingRecordsApi.createHousingRec
     `Top-level Housing Record ${fieldKey} should be dropped from stale raw data.`
   );
 });
+assert(
+  recordWithStaleTopLevelMortgageFields.mortgageTermRemainingYears === "20",
+  "Top-level mortgageTermRemainingYears should be preserved for calculated mortgage payment."
+);
+assert(
+  recordWithStaleTopLevelMortgageFields.mortgageTermRemainingMonths === "6",
+  "Top-level mortgageTermRemainingMonths should be preserved for calculated mortgage payment."
+);
+const overLimitMortgageTermRecord = housingRecordsApi.createHousingRecord({
+  typeKey: "primaryResidence",
+  primaryResidenceArrangement: "ownWithMortgage",
+  mortgageTermRemainingMonths: "18"
+});
+assert(
+  overLimitMortgageTermRecord.mortgageTermRemainingMonths === "11",
+  "Mortgage term remaining months should clamp values above 11."
+);
 assert(
   recordWithStaleTopLevelMortgageFields.propertySecuredDebts[0].monthlyPayment === "400",
   "Nested property-secured debt monthlyPayment should be preserved."
@@ -481,6 +496,8 @@ assertArrangementIncludes("ownWithMortgage", [
   "equityAmount",
   "currentBalance",
   "interestRatePercent",
+  "mortgageTermRemainingYears",
+  "mortgageTermRemainingMonths",
   "monthlyMortgagePaymentOnly",
   "associatedMonthlyCosts",
   "calculatedMonthlyMortgagePayment",
@@ -493,10 +510,9 @@ assertArrangementIncludes("ownWithMortgage", [
   "homeAgeYears",
   "monthlyMaintenanceRecommendation"
 ]);
+assert(moduleSource.includes('field.value = normalizedValue'), "Housing Records inputs should write autocorrected values back to the field.");
 assertArrangementExcludes("ownWithMortgage", [
   "monthlyPayment",
-  "mortgageTermRemainingYears",
-  "mortgageTermRemainingMonths",
   "remainingTermMonths",
   "maintenanceMonthly",
   "escrowStatus",
